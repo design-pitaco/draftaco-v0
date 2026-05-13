@@ -24,5 +24,6 @@
 }
 
 .more-casino-bs .more-sports-bs__label {
-  white-space: normal;
+  width: 100%;
+  white-space: nowrap;
 }

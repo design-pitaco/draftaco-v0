@@ -50,7 +50,7 @@ const casinoSections: MoreCasinoSection[] = [
       { id: 'crash', label: 'Crash', icon: iconCrash, categoryId: 'crash' },
       { id: 'poker', label: 'Poker', icon: iconPlaceholder },
       { id: 'video-bingo', label: 'Video Bingo', icon: iconPlaceholder },
-      { id: 'jogos-de-mesa', label: 'Jogos de Mesa', icon: iconPlaceholder },
+      { id: 'jogos-de-mesa', label: 'Mesa', icon: iconPlaceholder },
     ],
   },
 ]
