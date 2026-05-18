@@ -177,6 +177,10 @@
     transform 120ms ease;
 }
 
+.promotions-page--v2 .promotions-page__filter-chip {
+  padding: 0 12px;
+}
+
 .promotions-page__filter-chip:active {
   transform: scale(0.96);
 }
@@ -225,8 +229,41 @@
     radial-gradient(90% 120% at 12% 0%, rgba(255, 255, 255, 0.16), transparent 62%);
 }
 
+.promotions-page--v2 .sliding-chip-indicator::before {
+  background: linear-gradient(90deg, rgba(75, 32, 255, 0.24) 0%, rgba(151, 48, 255, 0.24) 100%);
+  box-shadow: none;
+}
+
+.promotions-page--v2 .sliding-chip-indicator::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4b20ff 0%, #9730ff 100%) border-box;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
 .promotions-page--liquid-glass-new .sliding-chip-group--indicator-switching .sliding-chip-indicator::after {
   animation: sliding-chip-liquid-toggle-shimmer 520ms ease;
+}
+
+.promotions-page--v2 .sliding-chip-group--indicator-switching .sliding-chip-indicator::before {
+  animation: none;
+}
+
+.promotions-page--v2 .sliding-chip-group--indicator-switching .sliding-chip-indicator::after {
+  animation: none;
 }
 
 .promotions-page__content {

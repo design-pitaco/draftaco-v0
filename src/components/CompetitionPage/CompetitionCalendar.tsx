@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import '../PreMatchSection/PreMatchSection.css'
 import '../CalendarSection/CalendarSection.css'
 import './CompetitionCalendar.css'
 import { useHomeMarketStickyState } from '../../hooks/useHomeMarketStickyVisible'
+import { createBetslipSelection, getBetslipEventId, getBetslipMarketGroupId } from '../../hooks/betslipUtils'
+import { useOddSelection } from '../../hooks/useOddSelection'
 import { useSlidingActiveIndicator } from '../../hooks/useSlidingActiveIndicator'
 
 import iconAoVivo from '../../assets/iconAoVivo.png'
@@ -53,6 +55,7 @@ export function CompetitionCalendar({ sport, matches }: CompetitionCalendarProps
   const marketChips = sport === 'basquete' ? basketballMarketChips : footballMarketChips
 
   const [activeMarket, setActiveMarket] = useState(marketChips[0].id)
+  const getOddButtonProps = useOddSelection('prematch-section__odd-btn')
 
   const sectionRef = useRef<HTMLElement>(null)
   const marketChipsRef = useRef<HTMLDivElement>(null)
@@ -108,34 +111,57 @@ export function CompetitionCalendar({ sport, matches }: CompetitionCalendarProps
   }
 
   const renderOdds = (m: CompetitionMatch) => {
+    const eventId = getBetslipEventId({
+      sport,
+      homeTeam: m.homeName,
+      awayTeam: m.awayName,
+    })
+    const oddGroupId = getBetslipMarketGroupId({ eventId, marketId: activeMarket })
+    const marketLabel = marketChips.find((chip) => chip.id === activeMarket)?.label
+    const liveClock = liveTimes[m.id] ?? m.liveTime
+    const renderOddButton = (outcomeId: string, label: ReactNode, value: ReactNode) => (
+      <button
+        {...getOddButtonProps(
+          `${oddGroupId}:${outcomeId}`,
+          oddGroupId,
+          'prematch-section__odd-btn',
+          createBetslipSelection({
+            eventId,
+            marketId: activeMarket,
+            outcomeId,
+            label,
+            odd: value,
+            marketLabel,
+            eventStatus: m.isLive ? 'live' : 'prematch',
+            sport,
+            homeTeam: m.homeName,
+            awayTeam: m.awayName,
+            eventTimeLabel: m.isLive ? liveClock : m.dateTime,
+            liveClock,
+            homeScore: m.homeScore,
+            awayScore: m.awayScore,
+            badgeType: m.earlyPayout ? 'boost' : undefined,
+          })
+        )}
+      >
+        <span className="prematch-section__odd-team">{label}</span>
+        <span className="prematch-section__odd-value">{value}</span>
+      </button>
+    )
+
     if (sport === 'basquete' || activeMarket === 'vencedor') {
       return (
         <>
-          <button className="prematch-section__odd-btn">
-            <span className="prematch-section__odd-team">{m.homeName}</span>
-            <span className="prematch-section__odd-value">{m.odds.home}</span>
-          </button>
-          <button className="prematch-section__odd-btn">
-            <span className="prematch-section__odd-team">{m.awayName}</span>
-            <span className="prematch-section__odd-value">{m.odds.away}</span>
-          </button>
+          {renderOddButton('home', m.homeName, m.odds.home)}
+          {renderOddButton('away', m.awayName, m.odds.away)}
         </>
       )
     }
     return (
       <>
-        <button className="prematch-section__odd-btn">
-          <span className="prematch-section__odd-team">{m.homeName}</span>
-          <span className="prematch-section__odd-value">{m.odds.home}</span>
-        </button>
-        <button className="prematch-section__odd-btn">
-          <span className="prematch-section__odd-team">Empate</span>
-          <span className="prematch-section__odd-value">{m.odds.draw ?? '-'}</span>
-        </button>
-        <button className="prematch-section__odd-btn">
-          <span className="prematch-section__odd-team">{m.awayName}</span>
-          <span className="prematch-section__odd-value">{m.odds.away}</span>
-        </button>
+        {renderOddButton('home', m.homeName, m.odds.home)}
+        {renderOddButton('draw', 'Empate', m.odds.draw ?? '-')}
+        {renderOddButton('away', m.awayName, m.odds.away)}
       </>
     )
   }

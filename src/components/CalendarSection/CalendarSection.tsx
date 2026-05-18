@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type RefObject } from 'react'
+import { useState, useRef, useEffect, type ReactNode, type RefObject } from 'react'
 import { CaretRightIcon, CaretUpIcon } from '@phosphor-icons/react'
 import '../PreMatchSection/PreMatchSection.css'
 import './CalendarSection.css'
@@ -12,6 +12,8 @@ import {
 import type { LiveEventMatch, LiveEventOpenPayload } from '../../pages/LiveEventPage'
 import { getTeamLogo } from '../../data/teamLogos'
 import { useHomeMarketStickyState } from '../../hooks/useHomeMarketStickyVisible'
+import { createBetslipSelection, getBetslipEventId, getBetslipMarketGroupId } from '../../hooks/betslipUtils'
+import { useOddSelection } from '../../hooks/useOddSelection'
 import { useSportsDbTeamLogo } from '../../hooks/useSportsDbTeamLogo'
 import { useSlidingActiveIndicator } from '../../hooks/useSlidingActiveIndicator'
 import {
@@ -2745,6 +2747,7 @@ export function CalendarSection({
 }: CalendarSectionProps = {}) {
   const sectionRef = useRef<HTMLElement>(null)
   const [activeMarket, setActiveMarket] = useState(() => getDefaultMarketId(sportFilter))
+  const getOddButtonProps = useOddSelection('prematch-section__odd-btn')
   const marketChipsRef = useRef<HTMLDivElement>(null)
   const marketStickyState = useHomeMarketStickyState(sectionRef, marketChipsRef)
   const [internalMatchTimes, setInternalMatchTimes] = useState<Record<string, string>>(() => {
@@ -2856,10 +2859,77 @@ export function CalendarSection({
       home: marketOdds.handicap.home,
       away: marketOdds.handicap.away,
     } : undefined)
+    const eventId = getBetslipEventId({
+      sport: league.sport,
+      homeTeam: event.homeName,
+      awayTeam: event.awayName,
+    })
+    const marketLabel = currentMarketChips.find((chip) => chip.id === selectedMarket)?.label
     const isPlayerPropsMarket = isCalendarPlayerPropsMarket(league.sport, selectedMarket)
     const matchPlayerProps = isPlayerPropsMarket
-      ? getCalendarPlayerProps(event, league.sport, selectedMarket, homeIcon, awayIcon)
+      ? getCalendarPlayerProps(event, league.sport, selectedMarket, homeIcon, awayIcon).map((player) => ({
+        ...player,
+        eventId,
+        marketId: selectedMarket,
+        marketLabel,
+        eventStatus: 'prematch' as const,
+        homeTeam: event.homeName,
+        awayTeam: event.awayName,
+        eventTimeLabel: event.dateTime,
+      }))
       : []
+    const oddGroupId = getBetslipMarketGroupId({ eventId, marketId: selectedMarket })
+    const totalPointsLikeLine = selectedMarket === 'q3-total'
+      ? marketOdds.q3Total?.line
+      : selectedMarket === 'q4-total'
+        ? marketOdds.q4Total?.line
+        : marketOdds.totalPoints?.line
+    const totalPointsLikeUnder = selectedMarket === 'q3-total'
+      ? marketOdds.q3Total?.under
+      : selectedMarket === 'q4-total'
+        ? marketOdds.q4Total?.under
+        : marketOdds.totalPoints?.under
+    const totalPointsLikeOver = selectedMarket === 'q3-total'
+      ? marketOdds.q3Total?.over
+      : selectedMarket === 'q4-total'
+        ? marketOdds.q4Total?.over
+        : marketOdds.totalPoints?.over
+    const totalPointsLikeUnderOutcomeId = selectedMarket === 'q3-total'
+      ? 'under-q3'
+      : selectedMarket === 'q4-total'
+        ? 'under-q4'
+        : 'under-points'
+    const totalPointsLikeOverOutcomeId = selectedMarket === 'q3-total'
+      ? 'over-q3'
+      : selectedMarket === 'q4-total'
+        ? 'over-q4'
+        : 'over-points'
+    const renderOddButton = (outcomeId: string, label: ReactNode, value: ReactNode) => (
+      <button
+        {...getOddButtonProps(
+          `${oddGroupId}:${outcomeId}`,
+          oddGroupId,
+          'prematch-section__odd-btn',
+          createBetslipSelection({
+            eventId,
+            marketId: selectedMarket,
+            outcomeId,
+            label,
+            odd: value,
+            marketLabel,
+            eventStatus: 'prematch',
+            sport: league.sport,
+            homeTeam: event.homeName,
+            awayTeam: event.awayName,
+            eventTimeLabel: event.dateTime,
+            badgeType: 'boost',
+          })
+        )}
+      >
+        <span className="prematch-section__odd-team">{label}</span>
+        <span className="prematch-section__odd-value">{value}</span>
+      </button>
+    )
 
     if (event.isLive) {
       return (
@@ -2955,121 +3025,55 @@ export function CalendarSection({
         <div key={`${event.id}-${selectedMarket}-odds`} className="prematch-section__odds">
           {selectedMarket === 'dupla-chance' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Casa ou Empate</span>
-                <span className="prematch-section__odd-value">{marketOdds.doubleChance?.homeOrDraw}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Casa ou Fora</span>
-                <span className="prematch-section__odd-value">{marketOdds.doubleChance?.homeOrAway}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Fora ou Empate</span>
-                <span className="prematch-section__odd-value">{marketOdds.doubleChance?.awayOrDraw}</span>
-              </button>
+              {renderOddButton('home-or-draw', 'Casa ou Empate', marketOdds.doubleChance?.homeOrDraw)}
+              {renderOddButton('home-or-away', 'Casa ou Fora', marketOdds.doubleChance?.homeOrAway)}
+              {renderOddButton('away-or-draw', 'Fora ou Empate', marketOdds.doubleChance?.awayOrDraw)}
             </>
           ) : selectedMarket === 'ambos-marcam' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Sim</span>
-                <span className="prematch-section__odd-value">{marketOdds.bothTeamsScore?.yes}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Não</span>
-                <span className="prematch-section__odd-value">{marketOdds.bothTeamsScore?.no}</span>
-              </button>
+              {renderOddButton('yes', 'Sim', marketOdds.bothTeamsScore?.yes)}
+              {renderOddButton('no', 'Não', marketOdds.bothTeamsScore?.no)}
             </>
           ) : selectedMarket === 'total-gols' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Menos de {marketOdds.totalGoals?.line}</span>
-                <span className="prematch-section__odd-value">{marketOdds.totalGoals?.under}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Mais de {marketOdds.totalGoals?.line}</span>
-                <span className="prematch-section__odd-value">{marketOdds.totalGoals?.over}</span>
-              </button>
+              {renderOddButton('under', `Menos de ${marketOdds.totalGoals?.line}`, marketOdds.totalGoals?.under)}
+              {renderOddButton('over', `Mais de ${marketOdds.totalGoals?.line}`, marketOdds.totalGoals?.over)}
             </>
           ) : selectedMarket === 'escanteios' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Menos de {marketOdds.totalCorners?.line}</span>
-                <span className="prematch-section__odd-value">{marketOdds.totalCorners?.under}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Mais de {marketOdds.totalCorners?.line}</span>
-                <span className="prematch-section__odd-value">{marketOdds.totalCorners?.over}</span>
-              </button>
+              {renderOddButton('under-corners', `Menos de ${marketOdds.totalCorners?.line}`, marketOdds.totalCorners?.under)}
+              {renderOddButton('over-corners', `Mais de ${marketOdds.totalCorners?.line}`, marketOdds.totalCorners?.over)}
             </>
           ) : selectedMarket === 'total-pontos' || selectedMarket === 'q3-total' || selectedMarket === 'q4-total' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Menos de {selectedMarket === 'q3-total' ? marketOdds.q3Total?.line : selectedMarket === 'q4-total' ? marketOdds.q4Total?.line : marketOdds.totalPoints?.line}</span>
-                <span className="prematch-section__odd-value">{selectedMarket === 'q3-total' ? marketOdds.q3Total?.under : selectedMarket === 'q4-total' ? marketOdds.q4Total?.under : marketOdds.totalPoints?.under}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Mais de {selectedMarket === 'q3-total' ? marketOdds.q3Total?.line : selectedMarket === 'q4-total' ? marketOdds.q4Total?.line : marketOdds.totalPoints?.line}</span>
-                <span className="prematch-section__odd-value">{selectedMarket === 'q3-total' ? marketOdds.q3Total?.over : selectedMarket === 'q4-total' ? marketOdds.q4Total?.over : marketOdds.totalPoints?.over}</span>
-              </button>
+              {renderOddButton(totalPointsLikeUnderOutcomeId, `Menos de ${totalPointsLikeLine}`, totalPointsLikeUnder)}
+              {renderOddButton(totalPointsLikeOverOutcomeId, `Mais de ${totalPointsLikeLine}`, totalPointsLikeOver)}
             </>
           ) : selectedMarket === 'handicap' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.homeName} {marketOdds.handicap && marketOdds.handicap.homeLine > 0 ? '+' : ''}{marketOdds.handicap?.homeLine}</span>
-                <span className="prematch-section__odd-value">{marketOdds.handicap?.home}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.awayName} {marketOdds.handicap && marketOdds.handicap.awayLine > 0 ? '+' : ''}{marketOdds.handicap?.awayLine}</span>
-                <span className="prematch-section__odd-value">{marketOdds.handicap?.away}</span>
-              </button>
+              {renderOddButton('home-handicap', `${event.homeName} ${marketOdds.handicap && marketOdds.handicap.homeLine > 0 ? '+' : ''}${marketOdds.handicap?.homeLine}`, marketOdds.handicap?.home)}
+              {renderOddButton('away-handicap', `${event.awayName} ${marketOdds.handicap && marketOdds.handicap.awayLine > 0 ? '+' : ''}${marketOdds.handicap?.awayLine}`, marketOdds.handicap?.away)}
             </>
           ) : selectedMarket === 'handicap-games' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.homeName} {marketOdds.handicap && marketOdds.handicap.homeLine > 0 ? '+' : ''}{marketOdds.handicap?.homeLine}</span>
-                <span className="prematch-section__odd-value">{marketOdds.handicap?.home}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.awayName} {marketOdds.handicap && marketOdds.handicap.awayLine > 0 ? '+' : ''}{marketOdds.handicap?.awayLine}</span>
-                <span className="prematch-section__odd-value">{marketOdds.handicap?.away}</span>
-              </button>
+              {renderOddButton('home-handicap-games', `${event.homeName} ${marketOdds.handicap && marketOdds.handicap.homeLine > 0 ? '+' : ''}${marketOdds.handicap?.homeLine}`, marketOdds.handicap?.home)}
+              {renderOddButton('away-handicap-games', `${event.awayName} ${marketOdds.handicap && marketOdds.handicap.awayLine > 0 ? '+' : ''}${marketOdds.handicap?.awayLine}`, marketOdds.handicap?.away)}
             </>
           ) : selectedMarket === 'total-games' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Menos de {marketOdds.totalGames?.line}</span>
-                <span className="prematch-section__odd-value">{marketOdds.totalGames?.under}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Mais de {marketOdds.totalGames?.line}</span>
-                <span className="prematch-section__odd-value">{marketOdds.totalGames?.over}</span>
-              </button>
+              {renderOddButton('under-games', `Menos de ${marketOdds.totalGames?.line}`, marketOdds.totalGames?.under)}
+              {renderOddButton('over-games', `Mais de ${marketOdds.totalGames?.line}`, marketOdds.totalGames?.over)}
             </>
           ) : league.sport === 'basquete' || league.sport === 'tenis' ? (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.homeName}</span>
-                <span className="prematch-section__odd-value">{event.odds.home}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.awayName}</span>
-                <span className="prematch-section__odd-value">{event.odds.away}</span>
-              </button>
+              {renderOddButton('home', event.homeName, event.odds.home)}
+              {renderOddButton('away', event.awayName, event.odds.away)}
             </>
           ) : (
             <>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.homeName}</span>
-                <span className="prematch-section__odd-value">{event.odds.home}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">Empate</span>
-                <span className="prematch-section__odd-value">{event.odds.draw}</span>
-              </button>
-              <button className="prematch-section__odd-btn">
-                <span className="prematch-section__odd-team">{event.awayName}</span>
-                <span className="prematch-section__odd-value">{event.odds.away}</span>
-              </button>
+              {renderOddButton('home', event.homeName, event.odds.home)}
+              {renderOddButton('draw', 'Empate', event.odds.draw)}
+              {renderOddButton('away', event.awayName, event.odds.away)}
             </>
           )}
         </div>

@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { ListIcon } from '@phosphor-icons/react'
-import './Header.css'
+import './HeaderV2.css'
 import logoReidoPitaco from '../../assets/logoReidoPitaco.svg'
 import type { ProductMode } from '../../types/home'
 import { productLabels } from '../../data/homeProducts'
 
-interface HeaderProps {
+interface HeaderV2Props {
   activeProduct?: ProductMode
   activeSport?: string | null
   rail?: ReactNode
@@ -21,7 +21,7 @@ const headerLogoExpandedWidth = 103
 const headerLogoCompactWidth = 96
 const headerMinimumControlGap = 20
 
-export function Header({
+export function HeaderV2({
   activeProduct = 'apostas',
   activeSport,
   rail,
@@ -29,7 +29,7 @@ export function Header({
   changeProductOnPointerDown = true,
   onProductChange,
   children,
-}: HeaderProps = {}) {
+}: HeaderV2Props = {}) {
   const isSportPage = !!activeSport && activeSport !== 'destaques'
   const [balanceDisplayValue, setBalanceDisplayValue] = useState(balanceDisplayOptions[0])
   const [accountActionsWidth, setAccountActionsWidth] = useState(() => showMenuButton ? 124 : 72)
@@ -232,6 +232,7 @@ export function Header({
     <header
       className={[
         'header',
+        'header--v2',
         isSportPage ? 'header--sport-active' : 'header--competition-rail',
         'header--liquid-glass',
         'header--liquid-glass-new',

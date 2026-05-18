@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { CaretUpIcon } from '@phosphor-icons/react'
 import './BannerCarousel.css'
 import { Toast } from '../Toast'
@@ -11,6 +11,15 @@ import {
   MissionTimer 
 } from '../BottomSheet'
 import { sportsBanners } from '../../data/homeProducts'
+import {
+  BETSLIP_ODD_INTERACTION_EVENT,
+  createBetslipSelection,
+  getBetslipEventId,
+  getBetslipMarketGroupId,
+  type BetslipSelection,
+} from '../../hooks/betslipUtils'
+import { useBetslip } from '../../hooks/useBetslip'
+import { useOddSelection } from '../../hooks/useOddSelection'
 import type { Banner } from '../../types/home'
 
 import iconSuperCombinada from '../../assets/iconSuperCombinada.png'
@@ -21,6 +30,7 @@ import iconBoostWhite from '../../assets/iconBoostWhite.svg'
 import iconAumentada from '../../assets/iconAumentada.png'
 import iconAtivo from '../../assets/iconAtivo.svg'
 import imgMissaoRodadaGratis from '../../assets/imgMissaoRodadaGratis.png'
+import pedroProps from '../../assets/pedroProps.png'
 
 // Mission progress type
 interface MissionProgress {
@@ -39,6 +49,188 @@ interface BannerAutoPlayRefs {
   autoPlayRef: { current: ReturnType<typeof setInterval> | null }
   bannerCountRef: { current: number }
   scrollRef: { current: HTMLDivElement | null }
+}
+
+interface BannerMatchTeams {
+  homeTeam?: string
+  awayTeam?: string
+}
+
+interface BannerBetslipEntry {
+  groupId: string
+  selection: BetslipSelection
+}
+
+const isBannerBetslipEntry = (entry: BannerBetslipEntry | undefined): entry is BannerBetslipEntry => !!entry
+
+const resultMarketGroupIds = new Set(['regular', 'live', 'tennis-live', 'resultado-final', '1x2'])
+
+const getReactNodeText = (node: ReactNode): string => {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(getReactNodeText).join('')
+
+  return ''
+}
+
+const getBannerMatchTeamsFromLabel = (label?: string): BannerMatchTeams | null => {
+  if (!label) return null
+
+  const parts = label.split(/\s+(?:vs|x)\s+/i).map((part) => part.trim()).filter(Boolean)
+  if (parts.length !== 2) return null
+
+  return {
+    homeTeam: parts[0],
+    awayTeam: parts[1],
+  }
+}
+
+const getBannerMatchTeams = (banner: Banner): BannerMatchTeams => {
+  if (banner.tennisMatch) {
+    return {
+      homeTeam: banner.tennisMatch.player1.name,
+      awayTeam: banner.tennisMatch.player2.name,
+    }
+  }
+
+  if (banner.liveMatch) {
+    return {
+      homeTeam: banner.liveMatch.homeTeam.name,
+      awayTeam: banner.liveMatch.awayTeam.name,
+    }
+  }
+
+  const headerTeams = getBannerMatchTeamsFromLabel(banner.headerRight)
+  if (headerTeams) return headerTeams
+
+  const regularTeams = banner.odds?.filter((odd) => odd.team !== 'Empate').map((odd) => odd.team) ?? []
+
+  return {
+    homeTeam: regularTeams[0] ?? banner.headerLeft,
+    awayTeam: regularTeams[regularTeams.length - 1] ?? banner.headerRight,
+  }
+}
+
+const getBannerSport = (banner: Banner) => {
+  if (banner.tennisMatch) return 'tenis'
+  if (banner.liveMatch) return 'basquete'
+
+  return 'futebol'
+}
+
+const getBannerEventName = (banner: Banner, { homeTeam, awayTeam }: BannerMatchTeams) => {
+  if (homeTeam && awayTeam) return `${homeTeam} x ${awayTeam}`
+
+  return banner.headerRight
+}
+
+const getBannerHomeTeamIcon = (banner: Banner) => (
+  banner.tennisMatch?.player1.flag
+    ?? banner.liveMatch?.homeTeam.badge
+    ?? banner.odds?.find((odd) => odd.team !== 'Empate')?.badge
+)
+
+const getBannerAwayTeamIcon = (banner: Banner) => {
+  if (banner.tennisMatch?.player2.flag) return banner.tennisMatch.player2.flag
+  if (banner.liveMatch?.awayTeam.badge) return banner.liveMatch.awayTeam.badge
+
+  const regularTeamsWithBadges = banner.odds?.filter((odd) => odd.team !== 'Empate' && odd.badge) ?? []
+  return regularTeamsWithBadges[regularTeamsWithBadges.length - 1]?.badge
+}
+
+const getBannerOutcomeIcon = (banner: Banner, outcomeId: string, label: ReactNode) => {
+  const labelText = getReactNodeText(label)
+
+  if (banner.tennisMatch) {
+    if (outcomeId === 'player-1' || labelText === banner.tennisMatch.player1.name) {
+      return banner.tennisMatch.player1.flag
+    }
+
+    if (outcomeId === 'player-2' || labelText === banner.tennisMatch.player2.name) {
+      return banner.tennisMatch.player2.flag
+    }
+  }
+
+  if (banner.liveMatch) {
+    if (outcomeId === 'home' || labelText === banner.liveMatch.homeTeam.name) {
+      return banner.liveMatch.homeTeam.badge
+    }
+
+    if (outcomeId === 'away' || labelText === banner.liveMatch.awayTeam.name) {
+      return banner.liveMatch.awayTeam.badge
+    }
+  }
+
+  return banner.odds?.find((odd) => odd.team === labelText)?.badge
+}
+
+const getBannerLiveTimeLabel = (banner: Banner, liveMatchTime: string) => {
+  if (banner.type === 'aoVivo') return liveMatchTime
+  if (banner.type === 'aoVivoTenis') return banner.tennisMatch?.currentSet ?? 'Ao vivo'
+
+  return banner.headerLeft
+}
+
+const getBannerMarketInfo = (banner: Banner, groupId: string) => {
+  if (resultMarketGroupIds.has(groupId) || banner.type === '1x2') {
+    return {
+      marketId: 'resultado-final',
+      marketLabel: 'Resultado Final',
+    }
+  }
+
+  return {
+    marketId: groupId,
+    marketLabel: groupId,
+  }
+}
+
+const getBannerAumentadaDetails = (banner: Banner) => {
+  if (banner.type !== 'aumentada') return null
+
+  const [playerName, rawStatValue, rawMarketLabel] = banner.description
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!playerName || !rawStatValue || !rawMarketLabel) return null
+
+  const overValueMatch = rawStatValue.match(/^mais\s+de\s+(\d+(?:[,.]\d+)?)$/i)
+  const statValue = overValueMatch ? `${overValueMatch[1].replace(',', '.')}+` : rawStatValue
+  const marketLabel = rawMarketLabel.replace(/\bao gol\b/i, 'ao Gol')
+
+  return {
+    playerName,
+    statValue,
+    marketLabel,
+    label: `${playerName} ${statValue}`,
+  }
+}
+
+const getBannerTeamCode = (teamName?: string) => (
+  teamName
+    ?.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/gi, '')
+    .slice(0, 3)
+    .toUpperCase()
+)
+
+const expandBannerComboStatValue = (
+  value: string,
+  { homeTeam, awayTeam }: BannerMatchTeams
+) => {
+  const prefixMatch = value.match(/^([a-z]{2,4})(.*)$/i)
+  if (!prefixMatch) return value
+
+  const [, rawPrefix, suffix = ''] = prefixMatch
+  const prefix = rawPrefix.toUpperCase()
+  const homeCode = getBannerTeamCode(homeTeam)
+  const awayCode = getBannerTeamCode(awayTeam)
+
+  if (homeTeam && prefix === homeCode) return `${homeTeam}${suffix}`
+  if (awayTeam && prefix === awayCode) return `${awayTeam}${suffix}`
+
+  return value
 }
 
 function startBannerAutoPlay({ autoPlayRef, bannerCountRef, scrollRef }: BannerAutoPlayRefs) {
@@ -133,6 +325,35 @@ function updateMatchTime(timeStr: string): string {
   }
 }
 
+const getBannerBetslipEventId = (banner: Banner) => {
+  if (banner.tennisMatch) {
+    return getBetslipEventId({
+      sport: 'tenis',
+      homeTeam: banner.tennisMatch.player1.name,
+      awayTeam: banner.tennisMatch.player2.name,
+      fallbackId: `banner-${banner.id}`,
+    })
+  }
+
+  if (banner.liveMatch) {
+    return getBetslipEventId({
+      sport: 'basquete',
+      homeTeam: banner.liveMatch.homeTeam.name,
+      awayTeam: banner.liveMatch.awayTeam.name,
+      fallbackId: `banner-${banner.id}`,
+    })
+  }
+
+  const { homeTeam, awayTeam } = getBannerMatchTeams(banner)
+
+  return getBetslipEventId({
+    sport: 'futebol',
+    homeTeam,
+    awayTeam,
+    fallbackId: `banner-${banner.id}`,
+  })
+}
+
 export function BannerCarousel({ banners = sportsBanners, onBannerClick }: BannerCarouselProps = {}) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -141,6 +362,8 @@ export function BannerCarousel({ banners = sportsBanners, onBannerClick }: Banne
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false)
   const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null)
   const [liveMatchTime, setLiveMatchTime] = useState("Q2 05:00")
+  const getOddButtonProps = useOddSelection('banner-card__odd-btn')
+  const { selectedSelectionIdsByGroup, toggleSelections } = useBetslip()
   const scrollRef = useRef<HTMLDivElement>(null)
   const startX = useRef(0)
   const scrollLeft = useRef(0)
@@ -348,6 +571,139 @@ export function BannerCarousel({ banners = sportsBanners, onBannerClick }: Banne
     event.preventDefault()
     onBannerClick(banner)
   }
+  const getBannerOddButtonProps = (
+    banner: Banner,
+    groupId: string,
+    outcomeId: string,
+    className: string,
+    label: ReactNode,
+    value: ReactNode
+  ) => {
+    const matchTeams = getBannerMatchTeams(banner)
+    const { homeTeam, awayTeam } = matchTeams
+    const isLive = banner.type === 'aoVivo' || banner.type === 'aoVivoTenis'
+    const marketInfo = getBannerMarketInfo(banner, groupId)
+    const aumentadaDetails = groupId === 'boosted' ? getBannerAumentadaDetails(banner) : null
+    const marketId = aumentadaDetails?.marketLabel ?? marketInfo.marketId
+    const marketLabel = aumentadaDetails?.marketLabel ?? marketInfo.marketLabel
+    const labelText = getReactNodeText(label)
+    const selectionLabel = aumentadaDetails?.playerName ?? labelText
+    const eventTimeLabel = getBannerLiveTimeLabel(banner, liveMatchTime)
+
+    return getOddButtonProps(
+      `banner:${banner.id}:${marketId}:${outcomeId}`,
+      `banner:${banner.id}:${marketId}`,
+      className,
+      createBetslipSelection({
+        eventId: getBannerBetslipEventId(banner),
+        marketId,
+        outcomeId,
+        label: aumentadaDetails?.label ?? label,
+        selectionLabel,
+        odd: value,
+        marketLabel,
+        eventStatus: isLive ? 'live' : 'prematch',
+        selectionType: aumentadaDetails
+          ? 'player'
+          : selectionLabel === homeTeam || selectionLabel === awayTeam ? 'team' : 'market',
+        sport: getBannerSport(banner),
+        homeTeam,
+        awayTeam,
+        eventName: getBannerEventName(banner, matchTeams),
+        eventTimeLabel,
+        liveClock: isLive ? eventTimeLabel : undefined,
+        homeScore: banner.tennisMatch?.player1.games ?? banner.liveMatch?.homeTeam.score,
+        awayScore: banner.tennisMatch?.player2.games ?? banner.liveMatch?.awayTeam.score,
+        homeTeamIcon: getBannerHomeTeamIcon(banner),
+        awayTeamIcon: getBannerAwayTeamIcon(banner),
+        selectionIcon: aumentadaDetails ? undefined : getBannerOutcomeIcon(banner, outcomeId, label),
+        playerName: aumentadaDetails?.playerName,
+        playerImage: aumentadaDetails?.playerName === 'Pedro' ? pedroProps : undefined,
+        badgeType: 'boost',
+      })
+    )
+  }
+
+  const getBannerComboBetslipEntries = (banner: Banner): BannerBetslipEntry[] => {
+    if (banner.type !== 'combinada' || !banner.comboStats?.length || !banner.oddBoosted) return []
+
+    const oddBoosted = banner.oddBoosted
+    const matchTeams = getBannerMatchTeams(banner)
+    const { homeTeam, awayTeam } = matchTeams
+    const eventId = getBannerBetslipEventId(banner)
+    const comboId = `banner-${banner.id}-combo`
+    const comboLegCount = banner.comboStats.length
+    const comboProps = {
+      comboId,
+      comboTitle: banner.title,
+      comboTypeLabel: banner.title,
+      comboTotalOddLabel: oddBoosted.new,
+      comboLegCount,
+    }
+
+    return banner.comboStats.map((stat, index) => {
+      const selectionLabel = expandBannerComboStatValue(stat.value, matchTeams)
+      const marketId = `${stat.label}-${selectionLabel}-${index}`
+      const selection = createBetslipSelection({
+        eventId,
+        marketId,
+        outcomeId: `combo-${index}-${selectionLabel}`,
+        label: selectionLabel,
+        selectionLabel,
+        odd: oddBoosted.new,
+        marketLabel: stat.label,
+        eventStatus: 'prematch',
+        selectionType: selectionLabel === homeTeam || selectionLabel === awayTeam ? 'team' : 'market',
+        sport: getBannerSport(banner),
+        homeTeam,
+        awayTeam,
+        eventName: getBannerEventName(banner, matchTeams),
+        eventTimeLabel: banner.headerLeft,
+        homeTeamIcon: getBannerHomeTeamIcon(banner),
+        awayTeamIcon: getBannerAwayTeamIcon(banner),
+        badgeType: 'boost',
+        comboLegIndex: index,
+        ...comboProps,
+      })
+
+      return selection ? {
+        groupId: getBetslipMarketGroupId({ eventId: selection.eventId, marketId: selection.marketId }),
+        selection,
+      } : undefined
+    }).filter(isBannerBetslipEntry)
+  }
+
+  const getBannerComboOddButtonProps = (banner: Banner) => {
+    const comboEntries = getBannerComboBetslipEntries(banner)
+    const selectedSelectionIds = new Set(Object.values(selectedSelectionIdsByGroup))
+    const isSelected = comboEntries.length > 0 && comboEntries.every(({ selection }) => selectedSelectionIds.has(selection.id))
+
+    return {
+      type: 'button' as const,
+      className: `banner-card__combinada-btn${isSelected ? ' odd-button--selected' : ''}`,
+      'aria-pressed': isSelected,
+      onClick: (event: MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation()
+        window.dispatchEvent(new CustomEvent(BETSLIP_ODD_INTERACTION_EVENT))
+        toggleSelections(comboEntries)
+      },
+    }
+  }
+  const renderBannerOddButton = (
+    banner: Banner,
+    groupId: string,
+    outcomeId: string,
+    className: string,
+    labelClassName: string,
+    valueClassName: string,
+    label: ReactNode,
+    value: ReactNode
+  ) => (
+    <button key={`banner:${banner.id}:${groupId}:${outcomeId}`} {...getBannerOddButtonProps(banner, groupId, outcomeId, className, label, value)}>
+      <span className={labelClassName}>{label}</span>
+      <span className={valueClassName}>{value}</span>
+    </button>
+  )
 
   return (
     <div className="banner-carousel">
@@ -455,14 +811,8 @@ export function BannerCarousel({ banners = sportsBanners, onBannerClick }: Banne
                     </div>
                   </div>
                   <div className="banner-card__live-odds">
-                    <button className="banner-card__live-odd-btn">
-                      <span className="banner-card__live-odd-team">{banner.tennisMatch.player1.name}</span>
-                      <span className="banner-card__live-odd-value">{banner.tennisMatch.odds.player1}</span>
-                    </button>
-                    <button className="banner-card__live-odd-btn">
-                      <span className="banner-card__live-odd-team">{banner.tennisMatch.player2.name}</span>
-                      <span className="banner-card__live-odd-value">{banner.tennisMatch.odds.player2}</span>
-                    </button>
+                    {renderBannerOddButton(banner, 'tennis-live', 'player-1', 'banner-card__live-odd-btn', 'banner-card__live-odd-team', 'banner-card__live-odd-value', banner.tennisMatch.player1.name, banner.tennisMatch.odds.player1)}
+                    {renderBannerOddButton(banner, 'tennis-live', 'player-2', 'banner-card__live-odd-btn', 'banner-card__live-odd-team', 'banner-card__live-odd-value', banner.tennisMatch.player2.name, banner.tennisMatch.odds.player2)}
                   </div>
                 </div>
               )}
@@ -499,20 +849,11 @@ export function BannerCarousel({ banners = sportsBanners, onBannerClick }: Banne
                     </div>
                   </div>
                   <div className="banner-card__live-odds">
-                    <button className="banner-card__live-odd-btn">
-                      <span className="banner-card__live-odd-team">{banner.liveMatch.homeTeam.name}</span>
-                      <span className="banner-card__live-odd-value">{banner.liveMatch.odds.home}</span>
-                    </button>
+                    {renderBannerOddButton(banner, 'live', 'home', 'banner-card__live-odd-btn', 'banner-card__live-odd-team', 'banner-card__live-odd-value', banner.liveMatch.homeTeam.name, banner.liveMatch.odds.home)}
                     {banner.liveMatch.odds.draw && (
-                      <button className="banner-card__live-odd-btn">
-                        <span className="banner-card__live-odd-team">Empate</span>
-                        <span className="banner-card__live-odd-value">{banner.liveMatch.odds.draw}</span>
-                      </button>
+                      renderBannerOddButton(banner, 'live', 'draw', 'banner-card__live-odd-btn', 'banner-card__live-odd-team', 'banner-card__live-odd-value', 'Empate', banner.liveMatch.odds.draw)
                     )}
-                    <button className="banner-card__live-odd-btn">
-                      <span className="banner-card__live-odd-team">{banner.liveMatch.awayTeam.name}</span>
-                      <span className="banner-card__live-odd-value">{banner.liveMatch.odds.away}</span>
-                    </button>
+                    {renderBannerOddButton(banner, 'live', 'away', 'banner-card__live-odd-btn', 'banner-card__live-odd-team', 'banner-card__live-odd-value', banner.liveMatch.awayTeam.name, banner.liveMatch.odds.away)}
                   </div>
                 </div>
               )}
@@ -536,7 +877,7 @@ export function BannerCarousel({ banners = sportsBanners, onBannerClick }: Banne
                     </div>
                   </div>
                   {banner.oddBoosted && (
-                    <button className="banner-card__combinada-btn">
+                    <button {...getBannerComboOddButtonProps(banner)}>
                       <span className="banner-card__combinada-old-odd">{banner.oddBoosted.old}</span>
                       <img src={iconBoostWhite} alt="" className="banner-card__combinada-arrow" />
                       <span className="banner-card__combinada-new-odd">{banner.oddBoosted.new}</span>
@@ -648,17 +989,14 @@ export function BannerCarousel({ banners = sportsBanners, onBannerClick }: Banne
                 {banner.odds && (
                   <div className="banner-card__odds">
                     {banner.odds.map((odd, i) => (
-                      <button key={i} className="banner-card__odd-btn">
-                        <span className="banner-card__odd-team">{odd.team}</span>
-                        <span className="banner-card__odd-value">{odd.value}</span>
-                      </button>
+                      renderBannerOddButton(banner, 'regular', `${odd.team}-${i}`, 'banner-card__odd-btn', 'banner-card__odd-team', 'banner-card__odd-value', odd.team, odd.value)
                     ))}
                   </div>
                 )}
 
                 {/* Odd aumentada */}
                 {banner.oddBoosted && (
-                  <button className="banner-card__boosted-btn">
+                  <button {...getBannerOddButtonProps(banner, 'boosted', 'boosted', 'banner-card__boosted-btn', banner.title, banner.oddBoosted.new)}>
                     <span className="banner-card__old-odd">{banner.oddBoosted.old}</span>
                     <img src={iconBoostWhite} alt="" className="banner-card__arrow" />
                     <span className="banner-card__new-odd">{banner.oddBoosted.new}</span>

@@ -1,0 +1,119 @@
+@import '../Header/Header.css';
+
+.header--v2 .header__toggle {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.header--v2 .header__toggle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(82deg, #4b20ff 0%, #9730ff 100%);
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.header--v2 .header__toggle::after {
+  display: none;
+}
+
+.header--v2 .header__toggle:focus-visible {
+  outline-color: rgba(141, 108, 255, 0.78);
+}
+
+.header--v2 .header__menu-btn {
+  box-sizing: border-box;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.header--v2 .header__menu-btn::before {
+  display: none;
+}
+
+.header--v2 .header__menu-btn::after {
+  display: none;
+}
+
+.header--v2 .header__menu-btn:hover,
+.header--v2 .header__menu-btn:focus-visible {
+  background: transparent;
+}
+
+.header--v2 .header__menu-btn:focus-visible {
+  outline-color: rgba(141, 108, 255, 0.78);
+}
+
+.header--v2 .header__menu-icon {
+  color: #ffffff;
+}
+
+.header--v2 .header__toggle-indicator {
+  z-index: 1;
+  background: #ffffff;
+  border-radius: 56px;
+  box-shadow: none;
+}
+
+.header--v2 .header__toggle--liquid-switching .header__toggle-indicator {
+  animation: header-v2-toggle-bounce 560ms cubic-bezier(0.2, 1, 0.28, 1);
+}
+
+.header--v2 .header__toggle-indicator::before {
+  display: none;
+}
+
+.header--v2 .header__toggle-indicator::after {
+  display: none;
+}
+
+.header--v2 .header__toggle-btn {
+  color: #ffffff;
+  text-shadow: none;
+}
+
+.header--v2 .header__toggle-btn--active {
+  color: #000000;
+  text-shadow: none;
+}
+
+@keyframes header-v2-toggle-bounce {
+  0% {
+    scale: 1 1;
+  }
+
+  24% {
+    scale: 1.12 0.92;
+  }
+
+  52% {
+    scale: 0.95 1.05;
+  }
+
+  76% {
+    scale: 1.02 0.99;
+  }
+
+  100% {
+    scale: 1 1;
+  }
+}

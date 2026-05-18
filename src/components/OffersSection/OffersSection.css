@@ -62,6 +62,10 @@
   cursor: pointer;
 }
 
+.home--v2 .offers-section__chip {
+  padding: 0 12px;
+}
+
 .offers-section__chip--active {
   background: transparent;
   color: #ffffff;
@@ -323,8 +327,8 @@
 
 .offer-card__player-badge {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   background-color: #202020;
   border-radius: 4px;
   box-sizing: border-box;
@@ -341,17 +345,24 @@
 .offer-card__player-stat-icon {
   width: 12px;
   height: 12px;
-  color: #9ecc30;
+  display: block;
+  flex-shrink: 0;
+  background-color: #9ecc30;
+  -webkit-mask: url('../../assets/icon-stats.svg') center / contain no-repeat;
+  mask: url('../../assets/icon-stats.svg') center / contain no-repeat;
 }
 
 .offer-card__player-badge--sport {
-  bottom: -4px;
-  right: -8px;
+  bottom: -5px;
+  right: -9px;
+  border-radius: 50%;
 }
 
 .offer-card__player-badge--stat {
   top: 0px;
-  right: -8px;
+  right: -9px;
+  background-color: #202020;
+  border-radius: 4px;
 }
 
 .offer-card__player-info {
@@ -423,7 +434,9 @@
   height: 40px;
   background-color: #202020;
   color: #ffffff;
+  border: 0;
   border-radius: 12px;
+  padding: 0;
   width: 100%;
 }
 

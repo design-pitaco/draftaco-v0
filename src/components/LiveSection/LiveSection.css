@@ -557,9 +557,16 @@
   height: 40px;
   padding: 0 8px;
   background-color: #242424;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 8px;
+  box-sizing: border-box;
+  box-shadow: none;
   cursor: pointer;
+  transition:
+    background 180ms ease,
+    box-shadow 220ms ease,
+    filter 180ms ease,
+    opacity 180ms ease;
 }
 
 .live-section__odd-team {

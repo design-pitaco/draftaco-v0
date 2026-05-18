@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useRef, useState, useLayoutEffect, useMemo } from 'react'
-import { Header, type HeaderVisualVariant } from '../../components/Header'
+import { Fragment, useCallback, useRef, useState, useLayoutEffect, useMemo, type ComponentType, type ReactNode } from 'react'
+import { Header } from '../../components/Header'
 import { TrilhoEBanner } from '../../components/TrilhoEBanner'
 import { PromotionSection } from '../../components/PromotionSection'
 import { OffersSection } from '../../components/OffersSection'
@@ -66,16 +66,32 @@ const SPORT_HEADER_EXPANDED_BG_HEIGHT_SHORTCUT = 210
 const SPORT_HEADER_COMPACT_BG_HEIGHT_SHORTCUT = 182
 const SHOW_TOP_GAMES_RAIL = false
 
-interface HomeProps {
-  headerVariant?: HeaderVisualVariant
+interface HeaderComponentProps {
   activeProduct?: ProductMode
+  activeSport?: string | null
+  rail?: ReactNode
   onProductChange?: (product: ProductMode) => void
+  children?: ReactNode
+}
+
+interface HomeProps {
+  activeProduct?: ProductMode
+  HeaderComponent?: ComponentType<HeaderComponentProps>
+  isV2?: boolean
+  onProductChange?: (product: ProductMode) => void
+  onLiveEventOpenChange?: (isOpen: boolean) => void
+  onLiveEventOpenSettled?: () => void
+  onLiveEventCloseStart?: () => void
 }
 
 export function Home({
-  headerVariant = 'default',
   activeProduct = 'apostas',
+  HeaderComponent = Header,
+  isV2 = false,
   onProductChange,
+  onLiveEventOpenChange,
+  onLiveEventOpenSettled,
+  onLiveEventCloseStart,
 }: HomeProps = {}) {
   const homeRef = useRef<HTMLDivElement>(null)
   const previousProductRef = useRef(activeProduct)
@@ -110,9 +126,19 @@ export function Home({
   const usesHeaderEventRail = shouldRenderTopGamesRail && !usesContentEventRail
   const shouldHideBetsBanner = isBetsProduct && !!displayActiveSport
 
-  const handleLiveMatchClick = (payload: LiveEventOpenPayload) => {
+  const handleLiveMatchClick = useCallback((payload: LiveEventOpenPayload) => {
+    onLiveEventOpenChange?.(true)
     setSelectedLiveMatch(payload)
-  }
+  }, [onLiveEventOpenChange])
+
+  const handleLiveEventClose = useCallback(() => {
+    setSelectedLiveMatch(null)
+    onLiveEventOpenChange?.(false)
+  }, [onLiveEventOpenChange])
+
+  const handleLiveEventCloseStart = useCallback(() => {
+    onLiveEventCloseStart?.()
+  }, [onLiveEventCloseStart])
 
   const handleCasinoGameOpen = (payload: CasinoGameOpenPayload) => {
     setSelectedCasinoGame(payload)
@@ -195,6 +221,14 @@ export function Home({
 
     return () => window.clearTimeout(timer)
   }, [activeProduct, scrollToTop])
+
+  useLayoutEffect(() => {
+    onLiveEventOpenChange?.(!!selectedLiveMatch)
+  }, [onLiveEventOpenChange, selectedLiveMatch])
+
+  useLayoutEffect(() => () => {
+    onLiveEventOpenChange?.(false)
+  }, [onLiveEventOpenChange])
 
   useLayoutEffect(() => {
     const homeEl = homeRef.current
@@ -667,7 +701,6 @@ export function Home({
 
   const headerRail = isBetsProduct ? (
     <SportRail
-      visualVariant={headerVariant}
       activeSport={activeSport}
       selectedCompetitionId={selectedCompetition?.id ?? null}
       selectedCompetitionName={selectedCompetition?.name ?? null}
@@ -677,7 +710,6 @@ export function Home({
     />
   ) : (
     <CasinoRail
-      visualVariant={headerVariant}
       activeCategory={activeCasinoCategory}
       onCategoryChange={handleCasinoCategoryChange}
     />
@@ -688,7 +720,8 @@ export function Home({
     'home--header-morph-active',
     'home--novo-trilho',
     'home--no-dividers',
-    headerVariant === 'liquid-glass-new' ? 'home--liquid-glass-new' : '',
+    'home--liquid-glass-new',
+    isV2 ? 'home--v2' : '',
     activeProduct === 'cassino' ? 'home--casino-active' : '',
     displayActiveSport ? 'home--sport-active' : '',
     usesHeaderEventRail ? 'home--event-rail-active' : '',
@@ -701,8 +734,7 @@ export function Home({
 
   return (
     <div className={homeClasses} ref={homeRef}>
-      <Header
-        visualVariant={headerVariant}
+      <HeaderComponent
         activeProduct={activeProduct}
         activeSport={displayActiveSport}
         onProductChange={onProductChange}
@@ -721,7 +753,7 @@ export function Home({
             )}
           </>
         )}
-      </Header>
+      </HeaderComponent>
       {shouldRenderTopGamesRail && usesContentEventRail && (
         <div className="home__content-event-rail">
           <SportsMatchCarousel
@@ -785,7 +817,9 @@ export function Home({
       {selectedLiveMatch && (
         <LiveEventPage
           isOpen={true}
-          onClose={() => setSelectedLiveMatch(null)}
+          onClose={handleLiveEventClose}
+          onOpenSettled={onLiveEventOpenSettled}
+          onCloseStart={handleLiveEventCloseStart}
           matches={selectedLiveMatch.matches}
           railEvents={selectedLiveMatch.railEvents}
           selectedIndex={selectedLiveMatch.selectedIndex}

@@ -1,8 +1,10 @@
-import { useCallback, useState, useEffect, useLayoutEffect, useRef, type PointerEvent, type WheelEvent } from 'react'
+import { useCallback, useState, useEffect, useLayoutEffect, useRef, type PointerEvent, type ReactNode, type WheelEvent } from 'react'
 import { CaretRightIcon, CaretUpIcon } from '@phosphor-icons/react'
 import './PreMatchSection.css'
 import { getTeamLogo } from '../../data/teamLogos'
 import { useHomeMarketStickyState } from '../../hooks/useHomeMarketStickyVisible'
+import { createBetslipSelection, getBetslipEventId, getBetslipMarketGroupId } from '../../hooks/betslipUtils'
+import { useOddSelection } from '../../hooks/useOddSelection'
 import { useSportsDbTeamLogo } from '../../hooks/useSportsDbTeamLogo'
 import { useSlidingActiveIndicator } from '../../hooks/useSlidingActiveIndicator'
 import {
@@ -103,6 +105,16 @@ export interface TeamPlayerProfile {
 
 export interface MatchPlayerProp {
   id: string
+  eventId?: string
+  marketId?: string
+  marketLabel?: string
+  eventStatus?: 'prematch' | 'live'
+  homeTeam?: string
+  awayTeam?: string
+  eventTimeLabel?: string
+  liveClock?: string
+  homeScore?: string | number
+  awayScore?: string | number
   playerName: string
   teamName: string
   teamIcon?: string
@@ -1070,7 +1082,8 @@ const getTeamPlayerProfiles = (teamName: string, sport: string, marketId: string
   return footballFinishingPlayersByTeam[teamName] ?? []
 }
 
-const getMatchPlayerProps = (
+// eslint-disable-next-line react-refresh/only-export-components
+export const getMatchPlayerProps = (
   match: PlayerPropsMatch,
   sport: string,
   marketId = sport === 'basquete' ? BASKETBALL_PLAYER_PROPS_MARKET_ID : FOOTBALL_PLAYER_PROPS_MARKET_ID
@@ -1113,6 +1126,10 @@ const getInitialPlayerPropOptionIndex = (options: PlayerPropOption[]) => {
   return activeIndex >= 0 ? activeIndex : Math.floor(options.length / 2)
 }
 
+const getPlayerPropBetslipOutcomeId = (player: MatchPlayerProp, optionIndex: number) => (
+  `${player.teamSide}:${player.playerName}:option-${optionIndex}`
+)
+
 export function PreMatchPlayerPropCard({ player }: { player: MatchPlayerProp }) {
   const fallbackTeamIcon = getPreMatchSportFallbackIcon(player.sport)
   const resolvedTeamIcon = useSportsDbTeamLogo(player.teamName, player.teamIcon, player.sport, fallbackTeamIcon || undefined, {
@@ -1120,6 +1137,7 @@ export function PreMatchPlayerPropCard({ player }: { player: MatchPlayerProp }) 
   })
   const isFallbackTeamIcon = isPreMatchSportFallbackIcon(resolvedTeamIcon, player.sport)
   const fallbackTeamIconModifier = player.sport === 'basquete' ? 'basketball' : 'sport'
+  const getPlayerPropOddButtonProps = useOddSelection('prematch-section__player-prop-option')
   const [activeOptionIndex, setActiveOptionIndex] = useState(() =>
     getInitialPlayerPropOptionIndex(player.options)
   )
@@ -1527,25 +1545,64 @@ export function PreMatchPlayerPropCard({ player }: { player: MatchPlayerProp }) 
           onPointerCancel={handleOptionPointerCancel}
           onLostPointerCapture={() => finishOptionDrag()}
         >
-          {player.options.map((option, index) => (
-            <button
-              key={`${player.id}-${option.label}`}
-              type="button"
-              className={`prematch-section__player-prop-option${activeOptionIndex === index ? ' prematch-section__player-prop-option--active' : ''}`}
-              onClick={(event) => {
-                event.stopPropagation()
-                if (suppressOptionClick.current) {
-                  suppressOptionClick.current = false
-                  event.preventDefault()
-                  return
-                }
-                centerOption(index)
-              }}
-            >
-              <span>{option.label}</span>
-              <strong>{option.odd}</strong>
-            </button>
-          ))}
+          {player.options.map((option, index) => {
+            const hasBetslipContext = !!player.eventId && !!player.marketId
+            const groupId = hasBetslipContext
+              ? getBetslipMarketGroupId({ eventId: player.eventId!, marketId: player.marketId! })
+              : player.id
+            const outcomeId = getPlayerPropBetslipOutcomeId(player, index)
+            const oddProps = getPlayerPropOddButtonProps(
+              `${groupId}:${outcomeId}`,
+              groupId,
+              'prematch-section__player-prop-option',
+              hasBetslipContext
+                ? createBetslipSelection({
+                  eventId: player.eventId!,
+                  marketId: player.marketId!,
+                  outcomeId,
+                  label: option.label,
+                  odd: option.odd,
+                  marketLabel: player.marketLabel,
+                  eventStatus: player.eventStatus ?? 'prematch',
+                  selectionType: 'player',
+                  sport: player.sport,
+                  homeTeam: player.homeTeam,
+                  awayTeam: player.awayTeam,
+                  eventTimeLabel: player.eventTimeLabel,
+                  liveClock: player.liveClock,
+                  homeScore: player.homeScore,
+                  awayScore: player.awayScore,
+                  playerName: player.playerName,
+                  selectionIcon: resolvedTeamIcon || player.teamIcon,
+                  playerImage: player.image,
+                })
+                : undefined
+            )
+            const isSelected = oddProps['aria-pressed'] === true
+            const selectionRenderState = isSelected ? 'selected' : 'idle'
+
+            return (
+              <button
+                key={`${player.id}-${option.label}-${selectionRenderState}`}
+                {...oddProps}
+                data-selection-state={selectionRenderState}
+                className={`${oddProps.className}${isSelected ? ' prematch-section__player-prop-option--active' : ''}`}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (suppressOptionClick.current) {
+                    suppressOptionClick.current = false
+                    event.preventDefault()
+                    return
+                  }
+                  centerOption(index)
+                  oddProps.onClick?.(event)
+                }}
+              >
+                <span>{option.label}</span>
+                <strong>{option.odd}</strong>
+              </button>
+            )
+          })}
         </div>
       </div>
     </article>
@@ -1974,6 +2031,7 @@ export function PreMatchSection({ onOpenCompetition, onMatchClick }: PreMatchSec
   )
   const [showBottomSheet, setShowBottomSheet] = useState(false)
   const [bottomSheetSport, setBottomSheetSport] = useState<'futebol' | 'basquete'>('futebol')
+  const getOddButtonProps = useOddSelection('prematch-section__odd-btn')
   
   // Refs for auto-scroll chips
   const sectionRef = useRef<HTMLElement>(null)
@@ -2265,9 +2323,51 @@ export function PreMatchSection({ onOpenCompetition, onMatchClick }: PreMatchSec
                 <div className="prematch-section__matches-inner">
                   <div className="prematch-section__matches">
                     {league.matches.map((match, matchIndex) => {
+                      const eventId = getBetslipEventId({
+                        sport: league.sport,
+                        homeTeam: match.homeTeam.name,
+                        awayTeam: match.awayTeam.name,
+                      })
+                      const marketLabel = currentMarketChips.find((chip) => chip.id === activeMarket)?.label
                       const matchPlayerProps = isPlayerPropsMarket(league.sport, activeMarket)
-                        ? getMatchPlayerProps(match, league.sport, activeMarket)
+                        ? getMatchPlayerProps(match, league.sport, activeMarket).map((player) => ({
+                          ...player,
+                          eventId,
+                          marketId: activeMarket,
+                          marketLabel,
+                          eventStatus: 'prematch' as const,
+                          homeTeam: match.homeTeam.name,
+                          awayTeam: match.awayTeam.name,
+                          eventTimeLabel: match.dateTime,
+                        }))
                         : []
+                      const oddGroupId = getBetslipMarketGroupId({ eventId, marketId: activeMarket })
+                      const renderOddButton = (outcomeId: string, label: ReactNode, value: ReactNode) => (
+                        <button
+                          {...getOddButtonProps(
+                            `${oddGroupId}:${outcomeId}`,
+                            oddGroupId,
+                            'prematch-section__odd-btn',
+                            createBetslipSelection({
+                              eventId,
+                              marketId: activeMarket,
+                              outcomeId,
+                              label,
+                              odd: value,
+                              marketLabel,
+                              eventStatus: 'prematch',
+                              sport: league.sport,
+                              homeTeam: match.homeTeam.name,
+                              awayTeam: match.awayTeam.name,
+                              eventTimeLabel: match.dateTime,
+                              badgeType: 'boost',
+                            })
+                          )}
+                        >
+                          <span className="prematch-section__odd-team">{label}</span>
+                          <span className="prematch-section__odd-value">{value}</span>
+                        </button>
+                      )
 
                       return (
                       <div
@@ -2341,127 +2441,61 @@ export function PreMatchSection({ onOpenCompetition, onMatchClick }: PreMatchSec
                           {/* Football Markets */}
                           {activeMarket === 'dupla-chance' && match.doubleChanceOdds ? (
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Casa ou Empate</span>
-                                <span className="prematch-section__odd-value">{match.doubleChanceOdds.homeOrDraw}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Casa ou Fora</span>
-                                <span className="prematch-section__odd-value">{match.doubleChanceOdds.homeOrAway}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Fora ou Empate</span>
-                                <span className="prematch-section__odd-value">{match.doubleChanceOdds.awayOrDraw}</span>
-                              </button>
+                              {renderOddButton('home-or-draw', 'Casa ou Empate', match.doubleChanceOdds.homeOrDraw)}
+                              {renderOddButton('home-or-away', 'Casa ou Fora', match.doubleChanceOdds.homeOrAway)}
+                              {renderOddButton('away-or-draw', 'Fora ou Empate', match.doubleChanceOdds.awayOrDraw)}
                             </>
                           ) : activeMarket === 'ambos-marcam' && match.bothTeamsScoreOdds ? (
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Sim</span>
-                                <span className="prematch-section__odd-value">{match.bothTeamsScoreOdds.yes}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Não</span>
-                                <span className="prematch-section__odd-value">{match.bothTeamsScoreOdds.no}</span>
-                              </button>
+                              {renderOddButton('yes', 'Sim', match.bothTeamsScoreOdds.yes)}
+                              {renderOddButton('no', 'Não', match.bothTeamsScoreOdds.no)}
                             </>
                           ) : activeMarket === 'total-gols' && match.totalGoalsOdds ? (
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Menos de {match.totalGoalsOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.totalGoalsOdds.under}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Mais de {match.totalGoalsOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.totalGoalsOdds.over}</span>
-                              </button>
+                              {renderOddButton('under', `Menos de ${match.totalGoalsOdds.line}`, match.totalGoalsOdds.under)}
+                              {renderOddButton('over', `Mais de ${match.totalGoalsOdds.line}`, match.totalGoalsOdds.over)}
                             </>
                           ) : activeMarket === 'escanteios' && match.totalCornersOdds ? (
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Menos de {match.totalCornersOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.totalCornersOdds.under}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Mais de {match.totalCornersOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.totalCornersOdds.over}</span>
-                              </button>
+                              {renderOddButton('under-corners', `Menos de ${match.totalCornersOdds.line}`, match.totalCornersOdds.under)}
+                              {renderOddButton('over-corners', `Mais de ${match.totalCornersOdds.line}`, match.totalCornersOdds.over)}
                             </>
                           ) : activeMarket === 'total-pontos' && match.totalPointsOdds ? (
                             /* Basketball: Total de Pontos */
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Menos de {match.totalPointsOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.totalPointsOdds.under}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Mais de {match.totalPointsOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.totalPointsOdds.over}</span>
-                              </button>
+                              {renderOddButton('under-points', `Menos de ${match.totalPointsOdds.line}`, match.totalPointsOdds.under)}
+                              {renderOddButton('over-points', `Mais de ${match.totalPointsOdds.line}`, match.totalPointsOdds.over)}
                             </>
                           ) : activeMarket === 'handicap' && match.handicapOdds ? (
                             /* Basketball: Handicap */
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">{match.homeTeam.name} {match.handicapOdds.line > 0 ? '+' : ''}{match.handicapOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.handicapOdds.home}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">{match.awayTeam.name} {match.handicapOdds.line > 0 ? '' : '+'}{-match.handicapOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.handicapOdds.away}</span>
-                              </button>
+                              {renderOddButton('home-handicap', `${match.homeTeam.name} ${match.handicapOdds.line > 0 ? '+' : ''}${match.handicapOdds.line}`, match.handicapOdds.home)}
+                              {renderOddButton('away-handicap', `${match.awayTeam.name} ${match.handicapOdds.line > 0 ? '' : '+'}${-match.handicapOdds.line}`, match.handicapOdds.away)}
                             </>
                           ) : activeMarket === 'q3-total' && match.q3TotalOdds ? (
                             /* Basketball: 3° Quarto - Total de Pontos */
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Menos de {match.q3TotalOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.q3TotalOdds.under}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Mais de {match.q3TotalOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.q3TotalOdds.over}</span>
-                              </button>
+                              {renderOddButton('under-q3', `Menos de ${match.q3TotalOdds.line}`, match.q3TotalOdds.under)}
+                              {renderOddButton('over-q3', `Mais de ${match.q3TotalOdds.line}`, match.q3TotalOdds.over)}
                             </>
                           ) : activeMarket === 'q4-total' && match.q4TotalOdds ? (
                             /* Basketball: 4° Quarto - Total de Pontos */
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Menos de {match.q4TotalOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.q4TotalOdds.under}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Mais de {match.q4TotalOdds.line}</span>
-                                <span className="prematch-section__odd-value">{match.q4TotalOdds.over}</span>
-                              </button>
+                              {renderOddButton('under-q4', `Menos de ${match.q4TotalOdds.line}`, match.q4TotalOdds.under)}
+                              {renderOddButton('over-q4', `Mais de ${match.q4TotalOdds.line}`, match.q4TotalOdds.over)}
                             </>
                           ) : activeMarket === 'vencedor' || activeSport === 'basquete' ? (
                             /* Basketball: Vencedor (no draw) */
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">{match.homeTeam.name}</span>
-                                <span className="prematch-section__odd-value">{match.odds.home}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">{match.awayTeam.name}</span>
-                                <span className="prematch-section__odd-value">{match.odds.away}</span>
-                              </button>
+                              {renderOddButton('home', match.homeTeam.name, match.odds.home)}
+                              {renderOddButton('away', match.awayTeam.name, match.odds.away)}
                             </>
                           ) : (
                             /* Football: Resultado Final (default) */
                             <>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">{match.homeTeam.name}</span>
-                                <span className="prematch-section__odd-value">{match.odds.home}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">Empate</span>
-                                <span className="prematch-section__odd-value">{match.odds.draw}</span>
-                              </button>
-                              <button className="prematch-section__odd-btn">
-                                <span className="prematch-section__odd-team">{match.awayTeam.name}</span>
-                                <span className="prematch-section__odd-value">{match.odds.away}</span>
-                              </button>
+                              {renderOddButton('home', match.homeTeam.name, match.odds.home)}
+                              {renderOddButton('draw', 'Empate', match.odds.draw)}
+                              {renderOddButton('away', match.awayTeam.name, match.odds.away)}
                             </>
                           )}
                         </div>

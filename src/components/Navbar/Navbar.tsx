@@ -1,48 +1,34 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import './Navbar.css'
 
 import { productNavbarConfigs } from '../../data/homeProducts'
-import { useSlidingActiveIndicator } from '../../hooks/useSlidingActiveIndicator'
 import type { ProductMode } from '../../types/home'
-import type { HeaderVisualVariant } from '../Header'
 
 interface NavbarProps {
   activeProduct?: ProductMode
-  visualVariant?: HeaderVisualVariant
+  isV2?: boolean
   activeItemId?: string
   onItemSelect?: (itemId: string) => void
 }
 
-const navbarLiquidItemSwitchMs = 560
-
-const isIosWebKitBrowser = () => {
-  if (typeof navigator === 'undefined') return false
-
-  const userAgent = navigator.userAgent || ''
-  const platform = navigator.platform || ''
-
-  return /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-}
+const navbarActiveMotionMs = 520
 
 export function Navbar({
   activeProduct = 'apostas',
-  visualVariant = 'default',
+  isV2 = false,
   activeItemId: controlledActiveItemId,
   onItemSelect,
 }: NavbarProps = {}) {
   const navbarConfig = productNavbarConfigs[activeProduct]
   const isControlledActiveItem = controlledActiveItemId !== undefined
   const configuredActiveItemId = controlledActiveItemId ?? navbarConfig.activeItemId
-  const isLiquidGlassV2 = visualVariant === 'liquid-glass-new'
-  const useIosLiquidFallback = isLiquidGlassV2 && isIosWebKitBrowser()
   const [selectedItemId, setSelectedItemId] = useState(configuredActiveItemId)
-  const [isItemSwitching, setIsItemSwitching] = useState(false)
-  const itemsRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const activeBackgroundRef = useRef<HTMLSpanElement | null>(null)
+  const previousActiveRectRef = useRef<DOMRect | null>(null)
+  const activeBackgroundAnimationRef = useRef<Animation | null>(null)
   const pointerItemSelectionRef = useRef<string | null>(null)
   const pointerItemSelectionResetTimerRef = useRef<number | null>(null)
-  const itemSwitchingFrameRef = useRef<number | null>(null)
-  const itemSwitchingResetTimerRef = useRef<number | null>(null)
   const availableItemIds = [
     ...navbarConfig.mainItems.map((item) => item.id),
     navbarConfig.searchItem.id,
@@ -50,19 +36,14 @@ export function Navbar({
   const activeItemId = availableItemIds.includes(selectedItemId)
     ? selectedItemId
     : navbarConfig.activeItemId
-  const activeMainItemId = navbarConfig.mainItems.some((item) => item.id === activeItemId)
-    ? activeItemId
-    : null
   const navClassName = [
     'navbar',
-    isLiquidGlassV2 ? 'navbar--liquid-v2' : '',
-    useIosLiquidFallback ? 'navbar--liquid-v2-ios' : '',
-    isLiquidGlassV2 ? 'navbar--liquid-v2-casino' : '',
-    isLiquidGlassV2 && isItemSwitching ? 'navbar--liquid-item-switching' : '',
+    isV2 ? 'navbar--liquid-v2' : '',
+    isV2 ? 'navbar--liquid-v2-casino' : '',
   ]
     .filter(Boolean)
     .join(' ')
-  const panelClassName = ['navbar__panel', isLiquidGlassV2 ? 'navbar__panel--liquid-v2' : '']
+  const panelClassName = ['navbar__panel', isV2 ? 'navbar__panel--liquid-v2' : '']
     .filter(Boolean)
     .join(' ')
 
@@ -73,41 +54,16 @@ export function Navbar({
     pointerItemSelectionResetTimerRef.current = null
   }, [])
 
-  const clearItemSwitchingTimers = useCallback(() => {
-    if (itemSwitchingFrameRef.current !== null) {
-      window.cancelAnimationFrame(itemSwitchingFrameRef.current)
-      itemSwitchingFrameRef.current = null
-    }
-
-    if (itemSwitchingResetTimerRef.current !== null) {
-      window.clearTimeout(itemSwitchingResetTimerRef.current)
-      itemSwitchingResetTimerRef.current = null
-    }
-  }, [])
-
-  const restartLiquidItemMotion = useCallback(() => {
-    if (!isLiquidGlassV2) return
-
-    clearItemSwitchingTimers()
-    setIsItemSwitching(false)
-
-    itemSwitchingFrameRef.current = window.requestAnimationFrame(() => {
-      itemSwitchingFrameRef.current = null
-      setIsItemSwitching(true)
-      itemSwitchingResetTimerRef.current = window.setTimeout(() => {
-        setIsItemSwitching(false)
-        itemSwitchingResetTimerRef.current = null
-      }, navbarLiquidItemSwitchMs)
-    })
-  }, [clearItemSwitchingTimers, isLiquidGlassV2])
-
   const selectNavbarItem = useCallback((itemId: string) => {
-    restartLiquidItemMotion()
+    if (isV2 && itemId !== activeItemId) {
+      previousActiveRectRef.current = itemRefs.current[activeItemId]?.getBoundingClientRect() ?? null
+    }
+
     if (!isControlledActiveItem) {
       setSelectedItemId(itemId)
     }
     onItemSelect?.(itemId)
-  }, [isControlledActiveItem, onItemSelect, restartLiquidItemMotion])
+  }, [activeItemId, isControlledActiveItem, isV2, onItemSelect])
 
   useEffect(() => {
     setSelectedItemId(configuredActiveItemId)
@@ -136,56 +92,47 @@ export function Navbar({
     selectNavbarItem(itemId)
   }
 
-  const getActiveMainItemElement = useCallback(() => (
-    activeMainItemId ? itemRefs.current[activeMainItemId] : null
-  ), [activeMainItemId])
+  useLayoutEffect(() => {
+    if (!isV2) return
 
-  useSlidingActiveIndicator({
-    activeKey: activeMainItemId,
-    containerRef: itemsRef,
-    getActiveElement: getActiveMainItemElement,
-    readyClassName: 'navbar__items--indicator-ready',
-    variablePrefix: 'navbar',
-  })
+    const activeBackgroundEl = activeBackgroundRef.current
+    const previousActiveRect = previousActiveRectRef.current
+    previousActiveRectRef.current = null
+
+    if (!activeBackgroundEl || !previousActiveRect) return
+
+    const activeRect = activeBackgroundEl.getBoundingClientRect()
+    if (!activeRect.width || !activeRect.height) return
+
+    activeBackgroundAnimationRef.current?.cancel()
+    activeBackgroundAnimationRef.current = activeBackgroundEl.animate(
+      [
+        {
+          transform: `translate3d(${previousActiveRect.left - activeRect.left}px, ${previousActiveRect.top - activeRect.top}px, 0) scale(${previousActiveRect.width / activeRect.width}, ${previousActiveRect.height / activeRect.height})`,
+        },
+        { transform: 'translate3d(0, 0, 0) scale(1, 1)' },
+      ],
+      {
+        duration: navbarActiveMotionMs,
+        easing: 'cubic-bezier(0.2, 1, 0.28, 1)',
+        fill: 'both',
+      }
+    )
+
+    activeBackgroundAnimationRef.current.addEventListener('finish', () => {
+      activeBackgroundAnimationRef.current = null
+    }, { once: true })
+  }, [activeItemId, isV2])
 
   useEffect(() => () => {
     clearPointerItemSelectionResetTimer()
-    clearItemSwitchingTimers()
-  }, [clearItemSwitchingTimers, clearPointerItemSelectionResetTimer])
+    activeBackgroundAnimationRef.current?.cancel()
+  }, [clearPointerItemSelectionResetTimer])
 
-  return (
-    <nav className={navClassName}>
-      {isLiquidGlassV2 && !useIosLiquidFallback ? (
-        <svg className="navbar__liquid-glass-filter" width="0" height="0" aria-hidden="true" focusable="false">
-          <filter
-            id="liquid-glass-distortion-v2"
-            x="-24%"
-            y="-24%"
-            width="148%"
-            height="148%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.007 0.012"
-              numOctaves="2"
-              seed="12"
-              result="noise"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="noise"
-              scale="42"
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
-        </svg>
-      ) : null}
+  const navbarShell = (
       <div className="navbar__shell">
         <div className={`${panelClassName} navbar__panel--main`}>
-          <div className="navbar__items" ref={itemsRef}>
-            <span className="navbar__active-indicator" aria-hidden="true" />
+          <div className="navbar__items">
             {navbarConfig.mainItems.map((item) => {
               const isActive = activeItemId === item.id
 
@@ -208,6 +155,13 @@ export function Navbar({
                   aria-label={item.label}
                   data-navbar-item-id={item.id}
                 >
+                  {isV2 && isActive ? (
+                    <span
+                      className="navbar__item-active-bg"
+                      ref={activeBackgroundRef}
+                      aria-hidden="true"
+                    />
+                  ) : null}
                   <span className="navbar__icon-slot">
                     <img
                       src={item.icon}
@@ -223,20 +177,11 @@ export function Navbar({
         </div>
 
         <div className={`${panelClassName} navbar__panel--search`}>
-          <span
-            className={[
-              'navbar__search-indicator',
-              activeItemId === navbarConfig.searchItem.id ? 'navbar__search-indicator--active' : '',
-              isLiquidGlassV2 && isItemSwitching && activeItemId === navbarConfig.searchItem.id
-                ? 'navbar__search-indicator--liquid-switching'
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-hidden="true"
-          />
           <button
             type="button"
+            ref={(node) => {
+              itemRefs.current[navbarConfig.searchItem.id] = node
+            }}
             className={[
               'navbar__item',
               'navbar__item--search',
@@ -250,6 +195,13 @@ export function Navbar({
             aria-label="Buscar"
             data-navbar-item-id={navbarConfig.searchItem.id}
           >
+            {isV2 && activeItemId === navbarConfig.searchItem.id ? (
+              <span
+                className="navbar__item-active-bg"
+                ref={activeBackgroundRef}
+                aria-hidden="true"
+              />
+            ) : null}
             <span className="navbar__icon-slot">
               <img src={navbarConfig.searchItem.icon} alt="" className="navbar__icon" />
             </span>
@@ -257,6 +209,11 @@ export function Navbar({
           </button>
         </div>
       </div>
+  )
+
+  return (
+    <nav className={navClassName}>
+      {navbarShell}
     </nav>
   )
 }

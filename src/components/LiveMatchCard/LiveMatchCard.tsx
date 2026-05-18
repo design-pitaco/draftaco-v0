@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { CaretRightIcon, MonitorPlayIcon } from '@phosphor-icons/react'
 import iconAoVivo from '../../assets/iconAoVivo.png'
 import escudoDefaultBasquete from '../../assets/escudoDefaultBasquete.png'
@@ -26,6 +27,8 @@ import {
   type PlayerPropOption,
   type TeamPlayerProfile,
 } from '../PreMatchSection/PreMatchSection'
+import { useOddSelection } from '../../hooks/useOddSelection'
+import { createBetslipSelection, getBetslipEventId, getBetslipMarketGroupId } from '../../hooks/betslipUtils'
 import '../LiveSection/LiveSection.css'
 
 export interface LiveMatchCardMatch {
@@ -606,7 +609,26 @@ const isLivePlayerPropsMarket = (sport: string, marketId: string) =>
       marketId === LIVE_FOOTBALL_ASSISTS_MARKET_ID
     )
 
-const getLivePlayerProps = (match: LiveMatchCardMatch, sport: string, marketId: string): MatchPlayerProp[] => {
+const liveMarketLabels: Record<string, string> = {
+  'resultado-final': 'Resultado Final',
+  vencedor: 'Resultado Final',
+  'dupla-chance': 'Dupla Chance',
+  'ambos-marcam': 'Ambos Marcam',
+  'total-gols': 'Total de Gols',
+  escanteios: 'Total de Escanteios',
+  'total-pontos': 'Total de Pontos',
+  handicap: 'Handicap',
+  'handicap-games': 'Handicap de Games',
+  'total-games': 'Total de Games',
+  'q3-total': '3° Quarto - Total de Pontos',
+  'q4-total': '4° Quarto - Total de Pontos',
+  [LIVE_FOOTBALL_FINISHING_MARKET_ID]: 'Finalizações ao Gol',
+  [LIVE_FOOTBALL_ASSISTS_MARKET_ID]: 'Assistências',
+  [LIVE_BASKETBALL_PLAYER_POINTS_MARKET_ID]: 'Pontos do Jogador',
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const getLivePlayerProps = (match: LiveMatchCardMatch, sport: string, marketId: string): MatchPlayerProp[] => {
   const optionSets = sport === 'basquete'
     ? marketId === LIVE_BASKETBALL_PLAYER_ASSISTS_MARKET_ID
       ? liveBasketballPlayerAssistOptionSets
@@ -654,7 +676,6 @@ export function LiveMatchCard({ match, sport, activeMarket, currentTime, onClick
   const isBasketball = sport === 'basquete'
   const isTennis = sport === 'tenis'
   const isPlayerProps = isLivePlayerPropsMarket(sport, activeMarket)
-  const matchPlayerProps = isPlayerProps ? getLivePlayerProps(match, sport, activeMarket) : []
   const sportFallbackIcon = isBasketball ? iconBasquete : isTennis ? iconTenis : iconFutebol
   const homeCurrentIcon = isTennis
     ? getTennisPlayerCountryIcon(match.homeTeam.name, match.homeTeam.icon)
@@ -668,6 +689,68 @@ export function LiveMatchCard({ match, sport, activeMarket, currentTime, onClick
   const awayTeamIcon = useSportsDbTeamLogo(match.awayTeam.name, awayCurrentIcon, sport, sportFallbackIcon, {
     useCurrentLogoFallback: isTennis,
   })
+  const getOddButtonProps = useOddSelection('live-section__odd-btn')
+  const eventId = getBetslipEventId({
+    sport,
+    homeTeam: match.homeTeam.name,
+    awayTeam: match.awayTeam.name,
+  })
+  const matchPlayerProps = isPlayerProps
+    ? getLivePlayerProps(match, sport, activeMarket).map((player) => ({
+      ...player,
+      eventId,
+      marketId: activeMarket,
+      marketLabel: liveMarketLabels[activeMarket],
+      eventStatus: 'live' as const,
+      homeTeam: match.homeTeam.name,
+      awayTeam: match.awayTeam.name,
+      eventTimeLabel: currentTime,
+      liveClock: currentTime,
+      homeScore: match.homeTeam.score,
+      awayScore: match.awayTeam.score,
+    }))
+    : []
+  const oddGroupId = getBetslipMarketGroupId({ eventId, marketId: activeMarket })
+  const marketLabel = liveMarketLabels[activeMarket]
+  const getMatchSelectionIcon = (outcomeId: string, label: ReactNode) => {
+    if (outcomeId.startsWith('home') || label === match.homeTeam.name) return homeTeamIcon
+    if (outcomeId.startsWith('away') || label === match.awayTeam.name) return awayTeamIcon
+
+    return homeTeamIcon || awayTeamIcon
+  }
+  const getMatchOddButtonProps = (outcomeId: string, label: ReactNode, value: ReactNode) => (
+    getOddButtonProps(
+      `${oddGroupId}:${outcomeId}`,
+      oddGroupId,
+      'live-section__odd-btn',
+      createBetslipSelection({
+        eventId,
+        marketId: activeMarket,
+        outcomeId,
+        label,
+        odd: value,
+        marketLabel,
+        eventStatus: 'live',
+        sport,
+        homeTeam: match.homeTeam.name,
+        awayTeam: match.awayTeam.name,
+        eventTimeLabel: currentTime,
+        liveClock: currentTime,
+        homeScore: match.homeTeam.score,
+        awayScore: match.awayTeam.score,
+        homeTeamIcon,
+        awayTeamIcon,
+        selectionIcon: getMatchSelectionIcon(outcomeId, label),
+        badgeType: 'substitution',
+      })
+    )
+  )
+  const renderOddButton = (outcomeId: string, label: ReactNode, value: ReactNode) => (
+    <button {...getMatchOddButtonProps(outcomeId, label, value)}>
+      <span className="live-section__odd-team">{label}</span>
+      <span className="live-section__odd-value">{value}</span>
+    </button>
+  )
 
   const renderTeamIcon = (icon: string | undefined, side: 'home' | 'away') => {
     if ((sport === 'futebol' && icon === iconFutebol) || (isTennis && icon === iconTenis)) {
@@ -759,151 +842,65 @@ export function LiveMatchCard({ match, sport, activeMarket, currentTime, onClick
       <div key={`${match.id}-${activeMarket}-odds`} className="live-section__odds">
         {activeMarket === 'dupla-chance' && match.doubleChanceOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Casa ou Empate</span>
-              <span className="live-section__odd-value">{match.doubleChanceOdds.homeOrDraw}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Casa ou Fora</span>
-              <span className="live-section__odd-value">{match.doubleChanceOdds.homeOrAway}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Fora ou Empate</span>
-              <span className="live-section__odd-value">{match.doubleChanceOdds.awayOrDraw}</span>
-            </button>
+            {renderOddButton('home-or-draw', 'Casa ou Empate', match.doubleChanceOdds.homeOrDraw)}
+            {renderOddButton('home-or-away', 'Casa ou Fora', match.doubleChanceOdds.homeOrAway)}
+            {renderOddButton('away-or-draw', 'Fora ou Empate', match.doubleChanceOdds.awayOrDraw)}
           </>
         ) : activeMarket === 'ambos-marcam' && match.bothTeamsScoreOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Sim</span>
-              <span className="live-section__odd-value">{match.bothTeamsScoreOdds.yes}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Não</span>
-              <span className="live-section__odd-value">{match.bothTeamsScoreOdds.no}</span>
-            </button>
+            {renderOddButton('yes', 'Sim', match.bothTeamsScoreOdds.yes)}
+            {renderOddButton('no', 'Não', match.bothTeamsScoreOdds.no)}
           </>
         ) : activeMarket === 'total-gols' && match.totalGoalsOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Menos de {match.totalGoalsOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalGoalsOdds.under}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Mais de {match.totalGoalsOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalGoalsOdds.over}</span>
-            </button>
+            {renderOddButton('under', `Menos de ${match.totalGoalsOdds.line}`, match.totalGoalsOdds.under)}
+            {renderOddButton('over', `Mais de ${match.totalGoalsOdds.line}`, match.totalGoalsOdds.over)}
           </>
         ) : activeMarket === 'escanteios' && match.totalCornersOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Menos de {match.totalCornersOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalCornersOdds.under}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Mais de {match.totalCornersOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalCornersOdds.over}</span>
-            </button>
+            {renderOddButton('under-corners', `Menos de ${match.totalCornersOdds.line}`, match.totalCornersOdds.under)}
+            {renderOddButton('over-corners', `Mais de ${match.totalCornersOdds.line}`, match.totalCornersOdds.over)}
           </>
         ) : activeMarket === 'total-pontos' && match.totalPointsOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Menos de {match.totalPointsOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalPointsOdds.under}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Mais de {match.totalPointsOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalPointsOdds.over}</span>
-            </button>
+            {renderOddButton('under-points', `Menos de ${match.totalPointsOdds.line}`, match.totalPointsOdds.under)}
+            {renderOddButton('over-points', `Mais de ${match.totalPointsOdds.line}`, match.totalPointsOdds.over)}
           </>
         ) : activeMarket === 'handicap' && match.handicapOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">
-                {match.homeTeam.name} {match.handicapOdds.line > 0 ? '+' : ''}{match.handicapOdds.line}
-              </span>
-              <span className="live-section__odd-value">{match.handicapOdds.home}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">
-                {match.awayTeam.name} {match.handicapOdds.line > 0 ? '' : '+'}{-match.handicapOdds.line}
-              </span>
-              <span className="live-section__odd-value">{match.handicapOdds.away}</span>
-            </button>
+            {renderOddButton('home-handicap', `${match.homeTeam.name} ${match.handicapOdds.line > 0 ? '+' : ''}${match.handicapOdds.line}`, match.handicapOdds.home)}
+            {renderOddButton('away-handicap', `${match.awayTeam.name} ${match.handicapOdds.line > 0 ? '' : '+'}${-match.handicapOdds.line}`, match.handicapOdds.away)}
           </>
         ) : activeMarket === 'handicap-games' && match.handicapOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">
-                {match.homeTeam.name} {match.handicapOdds.line > 0 ? '+' : ''}{match.handicapOdds.line}
-              </span>
-              <span className="live-section__odd-value">{match.handicapOdds.home}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">
-                {match.awayTeam.name} {match.handicapOdds.line > 0 ? '' : '+'}{-match.handicapOdds.line}
-              </span>
-              <span className="live-section__odd-value">{match.handicapOdds.away}</span>
-            </button>
+            {renderOddButton('home-handicap-games', `${match.homeTeam.name} ${match.handicapOdds.line > 0 ? '+' : ''}${match.handicapOdds.line}`, match.handicapOdds.home)}
+            {renderOddButton('away-handicap-games', `${match.awayTeam.name} ${match.handicapOdds.line > 0 ? '' : '+'}${-match.handicapOdds.line}`, match.handicapOdds.away)}
           </>
         ) : activeMarket === 'total-games' && match.totalGamesOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Menos de {match.totalGamesOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalGamesOdds.under}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Mais de {match.totalGamesOdds.line}</span>
-              <span className="live-section__odd-value">{match.totalGamesOdds.over}</span>
-            </button>
+            {renderOddButton('under-games', `Menos de ${match.totalGamesOdds.line}`, match.totalGamesOdds.under)}
+            {renderOddButton('over-games', `Mais de ${match.totalGamesOdds.line}`, match.totalGamesOdds.over)}
           </>
         ) : activeMarket === 'q3-total' && match.q3TotalOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Menos de {match.q3TotalOdds.line}</span>
-              <span className="live-section__odd-value">{match.q3TotalOdds.under}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Mais de {match.q3TotalOdds.line}</span>
-              <span className="live-section__odd-value">{match.q3TotalOdds.over}</span>
-            </button>
+            {renderOddButton('under-q3', `Menos de ${match.q3TotalOdds.line}`, match.q3TotalOdds.under)}
+            {renderOddButton('over-q3', `Mais de ${match.q3TotalOdds.line}`, match.q3TotalOdds.over)}
           </>
         ) : activeMarket === 'q4-total' && match.q4TotalOdds ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Menos de {match.q4TotalOdds.line}</span>
-              <span className="live-section__odd-value">{match.q4TotalOdds.under}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Mais de {match.q4TotalOdds.line}</span>
-              <span className="live-section__odd-value">{match.q4TotalOdds.over}</span>
-            </button>
+            {renderOddButton('under-q4', `Menos de ${match.q4TotalOdds.line}`, match.q4TotalOdds.under)}
+            {renderOddButton('over-q4', `Mais de ${match.q4TotalOdds.line}`, match.q4TotalOdds.over)}
           </>
         ) : isBasketball || isTennis ? (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">{match.homeTeam.name}</span>
-              <span className="live-section__odd-value">{match.odds.home}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">{match.awayTeam.name}</span>
-              <span className="live-section__odd-value">{match.odds.away}</span>
-            </button>
+            {renderOddButton('home', match.homeTeam.name, match.odds.home)}
+            {renderOddButton('away', match.awayTeam.name, match.odds.away)}
           </>
         ) : (
           <>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">{match.homeTeam.name}</span>
-              <span className="live-section__odd-value">{match.odds.home}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">Empate</span>
-              <span className="live-section__odd-value">{match.odds.draw}</span>
-            </button>
-            <button className="live-section__odd-btn">
-              <span className="live-section__odd-team">{match.awayTeam.name}</span>
-              <span className="live-section__odd-value">{match.odds.away}</span>
-            </button>
+            {renderOddButton('home', match.homeTeam.name, match.odds.home)}
+            {renderOddButton('draw', 'Empate', match.odds.draw)}
+            {renderOddButton('away', match.awayTeam.name, match.odds.away)}
           </>
         )}
       </div>

@@ -13,7 +13,6 @@ import iconTenis from '../../assets/iconSports/tennis.png'
 import { getCompetitionRailBadge } from '../../data/competitionBadges'
 import type { ProductRailBaseItem, ProductRailSection } from '../../types/home'
 import type { CompetitionLinkTarget } from '../../utils/competitionNavigation'
-import type { HeaderVisualVariant } from '../Header'
 import { MoreSportsBottomSheet } from '../BottomSheet'
 
 interface SportRailBaseItem extends ProductRailBaseItem {
@@ -40,7 +39,6 @@ interface SportRailMoreItem extends SportRailBaseItem {
 type SportRailItem = SportRailSportItem | SportRailCompetitionItem | SportRailMoreItem
 
 interface SportRailProps {
-  visualVariant?: HeaderVisualVariant
   activeSport?: string | null
   selectedCompetitionId?: string | null
   selectedCompetitionName?: string | null
@@ -52,7 +50,6 @@ interface SportRailProps {
 interface ProductRailProps<TItem extends ProductRailBaseItem> {
   sections: ProductRailSection<TItem>[]
   activeItemId: string
-  visualVariant?: HeaderVisualVariant
   isSportPage?: boolean
   renderAfter?: ReactNode
   getScrollAnchorId?: (item: TItem | undefined) => string | null
@@ -338,7 +335,6 @@ const createDynamicCompetitionItem = (
 export function ProductRail<TItem extends ProductRailBaseItem>({
   sections,
   activeItemId,
-  visualVariant = 'default',
   isSportPage = false,
   renderAfter,
   getScrollAnchorId = getDefaultProductRailScrollAnchorId,
@@ -353,15 +349,10 @@ export function ProductRail<TItem extends ProductRailBaseItem>({
   const [hasUserScrolledRail, setHasUserScrolledRail] = useState(false)
   const [isRailScrolledFromStart, setIsRailScrolledFromStart] = useState(false)
   const [isActiveIndicatorReady, setIsActiveIndicatorReady] = useState(false)
-  const [isLiquidIndicatorSwitching, setIsLiquidIndicatorSwitching] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLElement | null)[]>([])
   const hasUserScrolledRailRef = useRef(false)
   const hasAlignedActiveScrollRef = useRef(false)
-  const previousActiveItemIdRef = useRef(activeItemId)
-  const liquidIndicatorResetTimerRef = useRef<number | null>(null)
-  const liquidIndicatorFrameRef = useRef<number | null>(null)
-  const isLiquidGlassNew = visualVariant === 'liquid-glass-new'
   const flatRailItems = useMemo(
     () => sections.flatMap((section) => section.items),
     [sections]
@@ -375,37 +366,6 @@ export function ProductRail<TItem extends ProductRailBaseItem>({
     setHasUserScrolledRail(false)
     setHasMoreItemsLeft(false)
   }, [])
-
-  const clearLiquidIndicatorTimers = useCallback(() => {
-    if (liquidIndicatorResetTimerRef.current !== null) {
-      window.clearTimeout(liquidIndicatorResetTimerRef.current)
-      liquidIndicatorResetTimerRef.current = null
-    }
-
-    if (liquidIndicatorFrameRef.current !== null) {
-      window.cancelAnimationFrame(liquidIndicatorFrameRef.current)
-      liquidIndicatorFrameRef.current = null
-    }
-  }, [])
-
-  const restartLiquidIndicatorMotion = useCallback(() => {
-    if (!isLiquidGlassNew) return
-
-    clearLiquidIndicatorTimers()
-    setIsLiquidIndicatorSwitching(false)
-
-    liquidIndicatorFrameRef.current = window.requestAnimationFrame(() => {
-      liquidIndicatorFrameRef.current = window.requestAnimationFrame(() => {
-        liquidIndicatorFrameRef.current = null
-        setIsLiquidIndicatorSwitching(true)
-
-        liquidIndicatorResetTimerRef.current = window.setTimeout(() => {
-          setIsLiquidIndicatorSwitching(false)
-          liquidIndicatorResetTimerRef.current = null
-        }, 560)
-      })
-    })
-  }, [clearLiquidIndicatorTimers, isLiquidGlassNew])
 
   const updateActiveIndicator = useCallback(() => {
     const isReady = setProductRailActiveIndicator(
@@ -433,19 +393,6 @@ export function ProductRail<TItem extends ProductRailBaseItem>({
   useLayoutEffect(() => {
     updateActiveIndicator()
   }, [gap, updateActiveIndicator])
-
-  useEffect(() => {
-    if (previousActiveItemIdRef.current !== activeItemId) {
-      previousActiveItemIdRef.current = activeItemId
-      const timer = window.setTimeout(restartLiquidIndicatorMotion, 0)
-
-      return () => window.clearTimeout(timer)
-    }
-  }, [activeItemId, restartLiquidIndicatorMotion])
-
-  useEffect(() => () => {
-    clearLiquidIndicatorTimers()
-  }, [clearLiquidIndicatorTimers])
 
   useEffect(() => {
     const listEl = listRef.current
@@ -666,7 +613,7 @@ export function ProductRail<TItem extends ProductRailBaseItem>({
     'sport-rail',
     isSportPage ? 'sport-rail--sport-active' : '',
     'sport-rail--competitions',
-    isLiquidGlassNew ? 'sport-rail--liquid-glass-new' : '',
+    'sport-rail--liquid-glass-new',
     hasMoreItemsLeft ? 'sport-rail--show-left-fade' : '',
     hasMoreItemsRight ? 'sport-rail--show-right-fade' : '',
   ]
@@ -691,8 +638,7 @@ export function ProductRail<TItem extends ProductRailBaseItem>({
               'sport-rail__list',
               'sport-rail__list--competitions',
               isActiveIndicatorReady ? 'sport-rail__list--indicator-ready' : '',
-              isLiquidGlassNew ? 'sport-rail__list--liquid-glass-new' : '',
-              isLiquidIndicatorSwitching ? 'sport-rail__list--liquid-switching' : '',
+              'sport-rail__list--liquid-glass-new',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -720,7 +666,6 @@ export function ProductRail<TItem extends ProductRailBaseItem>({
 }
 
 export function SportRail({
-  visualVariant = 'default',
   activeSport,
   selectedCompetitionId,
   selectedCompetitionName,
@@ -822,7 +767,6 @@ export function SportRail({
     <ProductRail
       sections={railSections}
       activeItemId={activeRailItemId}
-      visualVariant={visualVariant}
       isSportPage={isSportPage}
       getScrollAnchorId={getSportRailScrollAnchorId}
       hasLiveIndicator={hasSportRailLiveIndicator}

@@ -1677,9 +1677,16 @@
   height: 40px;
   padding: 0 8px;
   background-color: #242424;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 8px;
+  box-sizing: border-box;
+  box-shadow: none;
   cursor: pointer;
+  transition:
+    background 180ms ease,
+    box-shadow 220ms ease,
+    filter 180ms ease,
+    opacity 180ms ease;
 }
 
 .live-event-page__odd-team {
@@ -1893,10 +1900,16 @@
   padding: 0 8px;
   box-sizing: border-box;
   background-color: #242424;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 8px;
+  box-shadow: none;
   cursor: pointer;
   overflow: hidden;
+  transition:
+    background 180ms ease,
+    box-shadow 220ms ease,
+    filter 180ms ease,
+    opacity 180ms ease;
 }
 
 .live-event-page__market-odd > span {
@@ -2211,15 +2224,22 @@
   min-width: calc((100% - 8px) / 2.5);
   height: 32px;
   padding: 0 8px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 8px;
+  box-sizing: border-box;
   background: #202020;
+  box-shadow: none;
   color: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition:
+    background 180ms ease,
+    box-shadow 220ms ease,
+    filter 180ms ease,
+    opacity 180ms ease;
 }
 
 .live-event-page__player-odd span,
@@ -2252,7 +2272,7 @@
   gap: 4px;
 }
 
-.live-event-page__total-goals-row .live-event-page__market-odd {
+.live-event-page__total-goals-row .live-event-page__market-odd:not(.odd-button--selected) {
   background: #202020;
 }
 

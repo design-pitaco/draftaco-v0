@@ -1,9 +1,10 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type UIEvent, type WheelEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type UIEvent, type WheelEvent } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import { CaretRightIcon, CourtBasketballIcon, MonitorPlayIcon, SoccerBallIcon } from '@phosphor-icons/react'
 import './LiveEventPage.css'
 
-import { PreMatchPlayerPropCard, type MatchPlayerProp } from '../../components/PreMatchSection/PreMatchSection'
+import { PreMatchPlayerPropCard, getMatchPlayerProps, type MatchPlayerProp } from '../../components/PreMatchSection/PreMatchSection'
+import { getLivePlayerProps } from '../../components/LiveMatchCard'
 import iconAoVivo from '../../assets/iconAoVivo.png'
 import reiAntecipaFutebol from '../../assets/reiAntecipaFutebol.png'
 import reiAntecipaBasquete from '../../assets/reiAntecipaBasquete.png'
@@ -21,6 +22,8 @@ import pedroProps from '../../assets/pedroProps.png'
 import depayProps from '../../assets/depayProps.png'
 import yuriProps from '../../assets/yuriProps.png'
 import flacoLopezProps from '../../assets/flacoLopezProps.png'
+import { useOddSelection } from '../../hooks/useOddSelection'
+import { createBetslipSelection, getBetslipEventId, getBetslipMarketGroupId } from '../../hooks/betslipUtils'
 import { useSportsDbTeamLogo } from '../../hooks/useSportsDbTeamLogo'
 
 export interface LiveEventMatch {
@@ -66,6 +69,8 @@ export interface LiveEventRailItem {
 export interface LiveEventPageProps {
   isOpen: boolean
   onClose: () => void
+  onOpenSettled?: () => void
+  onCloseStart?: () => void
   match?: LiveEventMatch
   matches?: LiveEventMatch[]
   railEvents?: LiveEventRailItem[]
@@ -806,6 +811,20 @@ function getTotalCardsRows(): TotalGoalsMarketRow[] {
   )
 }
 
+function isLineMarketCurrentRow(row: TotalGoalsMarketRow, line: number | undefined): boolean {
+  return line !== undefined && row.id.endsWith(`-${formatMarketLine(line)}`)
+}
+
+function isHandicapCurrentRow(row: TotalGoalsMarketRow, line: number | undefined): boolean {
+  return line !== undefined && row.id === `handicap-${formatSignedLine(line)}`
+}
+
+function getLiveEventLineOutcomeId(row: TotalGoalsMarketRow, isCurrentRow: boolean, outcomeId: string): string {
+  return isCurrentRow ? outcomeId : `${outcomeId}-${row.id}`
+}
+
+const liveEventDoubleChanceOutcomeIds = ['home-or-draw', 'home-or-away', 'away-or-draw']
+
 function getDoubleChanceRows(match: LiveEventMatch): ThreeWayMarketRow[] {
   const homeDisplayName = getDoubleChanceDisplayName(match.homeTeam.name)
   const awayDisplayName = getDoubleChanceDisplayName(match.awayTeam.name)
@@ -1329,12 +1348,14 @@ function LiveEventContent({
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTabId>('destaques')
   const [isResultMarketOpen, setIsResultMarketOpen] = useState(true)
   const [isShotsMarketOpen, setIsShotsMarketOpen] = useState(true)
+  const [isAssistsMarketOpen, setIsAssistsMarketOpen] = useState(true)
   const [isTotalGoalsMarketOpen, setIsTotalGoalsMarketOpen] = useState(true)
   const [isCornersMarketOpen, setIsCornersMarketOpen] = useState(true)
   const [isCardsMarketOpen, setIsCardsMarketOpen] = useState(true)
   const [isDoubleChanceMarketOpen, setIsDoubleChanceMarketOpen] = useState(true)
   const [displayTime, setDisplayTime] = useState(currentTime)
   const [isStickyScoreHeaderVisible, setIsStickyScoreHeaderVisible] = useState(false)
+  const getOddButtonProps = useOddSelection('live-event-page__market-odd')
   const scrollRef = useRef<HTMLDivElement>(null)
   const scoreBoxRef = useRef<HTMLDivElement>(null)
   const stickyScoreHeaderVisibleRef = useRef(false)
@@ -1376,30 +1397,64 @@ function LiveEventContent({
   const fieldTabLabel = isBasketball ? 'Quadra' : 'Campo'
   const fieldViewLabel = isBasketball ? 'Visão da Quadra' : 'Visão do Campo'
   const playerMarketTitle = isBasketball ? 'Pontos do Jogador' : 'Finalizações ao Gol'
+  const playerPropsMarketId = isBasketball ? 'pontos-jogador' : 'finalizacao-gol'
+  const assistsMarketId = 'assistencias'
   const primaryTotalMarketTitle = isBasketball ? 'Total de Pontos' : 'Total de Gols'
   const secondaryMarketTitle = isBasketball ? 'Handicap' : 'Total de Escanteios'
   const tertiaryMarketTitle = isBasketball ? '3° Quarto - Total de Pontos' : 'Total de Cartões'
   const finalMarketTitle = isBasketball ? '4° Quarto - Total de Pontos' : 'Dupla Chance'
-  const allPlayerPropRows = getPlayerPropRows(match, isBasketball, true)
-  const playerPropCards: MatchPlayerProp[] = allPlayerPropRows.map((row) => {
-    const teamSide = row.team === match.awayTeam.name ? 'away' : 'home'
-
-    return {
-      id: `${match.id ?? 'live-event'}-${row.id}`,
-      playerName: row.player,
-      teamName: row.team,
-      teamIcon: teamSide === 'away' ? match.awayTeam.icon : match.homeTeam.icon,
-      teamSide,
-      sport: contentSport,
-      position: getPlayerPropCardPosition(row.player, isBasketball),
-      image: row.image ?? playerAvatarFallback,
-      options: row.outcomes.map((outcome, outcomeIndex) => ({
-        label: outcome.label,
-        odd: outcome.odd,
-        active: outcomeIndex === Math.min(1, row.outcomes.length - 1),
-      })),
-    }
+  const eventId = getBetslipEventId({
+    sport: contentSport,
+    homeTeam: match.homeTeam.name,
+    awayTeam: match.awayTeam.name,
   })
+  const buildEventPlayerPropCards = (marketId: string, fallbackRows: PlayerShotMarket[] = []): MatchPlayerProp[] => {
+    const syncedCards = isLiveMatch
+      ? getLivePlayerProps({
+        ...match,
+        id: match.id ?? 'live-event',
+        time: match.time ?? scheduledDateTime,
+      }, contentSport, marketId)
+      : getMatchPlayerProps({
+        id: match.id ?? 'live-event',
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+      }, contentSport, marketId)
+    const fallbackCards: MatchPlayerProp[] = fallbackRows.map((row) => {
+      const teamSide = row.team === match.awayTeam.name ? 'away' : 'home'
+
+      return {
+        id: `${match.id ?? 'live-event'}-${row.id}`,
+        playerName: row.player,
+        teamName: row.team,
+        teamIcon: teamSide === 'away' ? match.awayTeam.icon : match.homeTeam.icon,
+        teamSide,
+        sport: contentSport,
+        position: getPlayerPropCardPosition(row.player, isBasketball),
+        image: row.image ?? playerAvatarFallback,
+        options: row.outcomes.map((outcome, outcomeIndex) => ({
+          label: outcome.label,
+          odd: outcome.odd,
+          active: outcomeIndex === Math.min(1, row.outcomes.length - 1),
+        })),
+      }
+    })
+
+    return (syncedCards.length > 0 ? syncedCards : fallbackCards).map((player) => ({
+      ...player,
+      eventId,
+      marketId,
+      eventStatus: isLiveMatch ? 'live' as const : 'prematch' as const,
+      homeTeam: match.homeTeam.name,
+      awayTeam: match.awayTeam.name,
+      eventTimeLabel: isLiveMatch ? displayTime : scheduledDateTime,
+      liveClock: isLiveMatch ? displayTime : undefined,
+      homeScore: match.homeTeam.score,
+      awayScore: match.awayTeam.score,
+    }))
+  }
+  const playerPropCards = buildEventPlayerPropCards(playerPropsMarketId, getPlayerPropRows(match, isBasketball, true))
+  const assistPlayerPropCards = buildEventPlayerPropCards(assistsMarketId)
   const primaryTotalRows = isBasketball ? getTotalPointsRows(match) : getTotalGoalsRows(match, false)
   const secondaryRows = isBasketball ? getHandicapRows(match) : getTotalCornersRows(match)
   const tertiaryRows = isBasketball ? getQuarterTotalRows(match.q3TotalOdds) : getTotalCardsRows()
@@ -1431,6 +1486,64 @@ function LiveEventContent({
   const awayPrimaryEvent = awayEvents[0]
   const homeExtraEventsCount = Math.max(0, homeEvents.length - 1)
   const awayExtraEventsCount = Math.max(0, awayEvents.length - 1)
+  const resultMarketId = isBasketball ? 'vencedor' : 'resultado-final'
+  const primaryTotalMarketId = isBasketball ? 'total-pontos' : 'total-gols'
+  const secondaryMarketId = isBasketball ? 'handicap' : 'escanteios'
+  const tertiaryMarketId = isBasketball ? 'q3-total' : 'total-cartoes'
+  const finalMarketId = isBasketball ? 'q4-total' : 'dupla-chance'
+  const getMarketTitle = (marketId: string) => {
+    if (marketId === resultMarketId) return resultMarketTitle
+    if (marketId === playerPropsMarketId) return playerMarketTitle
+    if (marketId === assistsMarketId) return 'Assistências'
+    if (marketId === primaryTotalMarketId) return primaryTotalMarketTitle
+    if (marketId === secondaryMarketId) return secondaryMarketTitle
+    if (marketId === tertiaryMarketId) return tertiaryMarketTitle
+    if (marketId === finalMarketId) return finalMarketTitle
+
+    return marketId
+  }
+  const renderMarketOddButton = (
+    marketId: string,
+    outcomeId: string,
+    label: ReactNode,
+    odd: ReactNode,
+    className = 'live-event-page__market-odd',
+    labelClassName?: string,
+    labelAriaLabel?: string
+  ) => {
+    const groupId = getBetslipMarketGroupId({ eventId, marketId })
+
+    return (
+      <button
+        key={`${groupId}:${outcomeId}`}
+        {...getOddButtonProps(
+          `${groupId}:${outcomeId}`,
+          groupId,
+          className,
+          createBetslipSelection({
+            eventId,
+            marketId,
+            outcomeId,
+            label,
+            odd,
+            marketLabel: getMarketTitle(marketId),
+            eventStatus: isLiveMatch ? 'live' : 'prematch',
+            sport: contentSport,
+            homeTeam: match.homeTeam.name,
+            awayTeam: match.awayTeam.name,
+            eventTimeLabel: isLiveMatch ? displayTime : scheduledDateTime,
+            liveClock: isLiveMatch ? displayTime : undefined,
+            homeScore: match.homeTeam.score,
+            awayScore: match.awayTeam.score,
+            badgeType: marketId === resultMarketId ? 'boost' : 'substitution',
+          })
+        )}
+      >
+        <span className={labelClassName} aria-label={labelAriaLabel}>{label}</span>
+        <strong>{odd}</strong>
+      </button>
+    )
+  }
 
   useEffect(() => {
     expansionProgressRef.current = expansionProgress
@@ -2146,20 +2259,11 @@ function LiveEventContent({
           <div className={`live-event-page__market-collapse${isResultMarketOpen ? ' live-event-page__market-collapse--open' : ''}`}>
             <div className="live-event-page__market-collapse-inner">
               <div className="live-event-page__market-odds">
-                <button className="live-event-page__market-odd">
-                  <span>{match.homeTeam.name}</span>
-                  <strong>{match.odds.home}</strong>
-                </button>
+                {renderMarketOddButton(resultMarketId, 'home', match.homeTeam.name, match.odds.home)}
                 {match.odds.draw && (
-                  <button className="live-event-page__market-odd">
-                    <span>Empate</span>
-                    <strong>{match.odds.draw}</strong>
-                  </button>
+                  renderMarketOddButton(resultMarketId, 'draw', 'Empate', match.odds.draw)
                 )}
-                <button className="live-event-page__market-odd">
-                  <span>{match.awayTeam.name}</span>
-                  <strong>{match.odds.away}</strong>
-                </button>
+                {renderMarketOddButton(resultMarketId, 'away', match.awayTeam.name, match.odds.away)}
               </div>
             </div>
           </div>
@@ -2218,6 +2322,60 @@ function LiveEventContent({
           </div>
         </div>
 
+        {assistPlayerPropCards.length > 0 && (
+          <div className={`live-event-page__market-card live-event-page__market-card--player-props${isAssistsMarketOpen ? '' : ' live-event-page__market-card--closed'}`}>
+            <div className="live-event-page__market-header">
+              <span className="live-event-page__market-title">Assistências</span>
+              <div className="live-event-page__market-actions">
+                <div className="live-event-page__market-ca-box">
+                  <span className="live-event-page__market-ca">CA</span>
+                </div>
+                <button
+                  type="button"
+                  className="live-event-page__market-toggle"
+                  aria-label={isAssistsMarketOpen ? 'Recolher mercado' : 'Expandir mercado'}
+                  aria-expanded={isAssistsMarketOpen}
+                  onClick={() => setIsAssistsMarketOpen((current) => !current)}
+                >
+                  <CaretRightIcon
+                    aria-hidden="true"
+                    className={`live-event-page__market-chevron${isAssistsMarketOpen ? '' : ' live-event-page__market-chevron--closed'}`}
+                    weight="bold"
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="live-event-page__market-tags">
+              <div className="live-event-page__market-tag">
+                <span>Substituição Garantida</span>
+                <span className="live-event-page__market-tag-badge">
+                  <img src={substituicaoGarantida} alt="" className="live-event-page__market-tag-img" />
+                </span>
+              </div>
+              <div className="live-event-page__market-tag">
+                <span>Múltipla Turbinada</span>
+                <span className="live-event-page__market-tag-badge">
+                  <img src={multiplaTurbinada} alt="" className="live-event-page__market-tag-img" />
+                </span>
+              </div>
+            </div>
+
+            <div className={`live-event-page__market-collapse${isAssistsMarketOpen ? ' live-event-page__market-collapse--open' : ''}`}>
+              <div className="live-event-page__market-collapse-inner">
+                <div
+                  className="prematch-section__player-props live-event-page__player-props-slider"
+                  aria-label="Cards de Assistências"
+                >
+                  {assistPlayerPropCards.map((player) => (
+                    <PreMatchPlayerPropCard key={player.id} player={player} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Market card (Total de Gols) ── */}
         <div className={`live-event-page__market-card${isTotalGoalsMarketOpen ? '' : ' live-event-page__market-card--closed'}`}>
           <div className="live-event-page__market-header">
@@ -2254,18 +2412,18 @@ function LiveEventContent({
           <div className={`live-event-page__market-collapse${isTotalGoalsMarketOpen ? ' live-event-page__market-collapse--open' : ''}`}>
             <div className="live-event-page__market-collapse-inner">
               <div className="live-event-page__total-goals-list">
-                {primaryTotalRows.map((row) => (
-                  <div key={row.id} className="live-event-page__total-goals-row">
-                    <button className="live-event-page__market-odd">
-                      <span>{row.under.label}</span>
-                      <strong>{row.under.odd}</strong>
-                    </button>
-                    <button className="live-event-page__market-odd">
-                      <span>{row.over.label}</span>
-                      <strong>{row.over.odd}</strong>
-                    </button>
-                  </div>
-                ))}
+                {primaryTotalRows.map((row) => {
+                  const isCurrentRow = isLineMarketCurrentRow(row, isBasketball ? match.totalPointsOdds?.line : match.totalGoalsOdds?.line)
+                  const underOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, isBasketball ? 'under-points' : 'under')
+                  const overOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, isBasketball ? 'over-points' : 'over')
+
+                  return (
+                    <div key={row.id} className="live-event-page__total-goals-row">
+                      {renderMarketOddButton(primaryTotalMarketId, underOutcomeId, row.under.label, row.under.odd)}
+                      {renderMarketOddButton(primaryTotalMarketId, overOutcomeId, row.over.label, row.over.odd)}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -2307,18 +2465,20 @@ function LiveEventContent({
           <div className={`live-event-page__market-collapse${isCornersMarketOpen ? ' live-event-page__market-collapse--open' : ''}`}>
             <div className="live-event-page__market-collapse-inner">
               <div className="live-event-page__total-goals-list">
-                {secondaryRows.map((row) => (
-                  <div key={row.id} className="live-event-page__total-goals-row">
-                    <button className="live-event-page__market-odd">
-                      <span>{row.under.label}</span>
-                      <strong>{row.under.odd}</strong>
-                    </button>
-                    <button className="live-event-page__market-odd">
-                      <span>{row.over.label}</span>
-                      <strong>{row.over.odd}</strong>
-                    </button>
-                  </div>
-                ))}
+                {secondaryRows.map((row) => {
+                  const isCurrentRow = isBasketball
+                    ? isHandicapCurrentRow(row, match.handicapOdds?.line)
+                    : isLineMarketCurrentRow(row, match.totalCornersOdds?.line)
+                  const underOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, isBasketball ? 'home-handicap' : 'under-corners')
+                  const overOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, isBasketball ? 'away-handicap' : 'over-corners')
+
+                  return (
+                    <div key={row.id} className="live-event-page__total-goals-row">
+                      {renderMarketOddButton(secondaryMarketId, underOutcomeId, row.under.label, row.under.odd)}
+                      {renderMarketOddButton(secondaryMarketId, overOutcomeId, row.over.label, row.over.odd)}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -2360,18 +2520,18 @@ function LiveEventContent({
           <div className={`live-event-page__market-collapse${isCardsMarketOpen ? ' live-event-page__market-collapse--open' : ''}`}>
             <div className="live-event-page__market-collapse-inner">
               <div className="live-event-page__total-goals-list">
-                {tertiaryRows.map((row) => (
-                  <div key={row.id} className="live-event-page__total-goals-row">
-                    <button className="live-event-page__market-odd">
-                      <span>{row.under.label}</span>
-                      <strong>{row.under.odd}</strong>
-                    </button>
-                    <button className="live-event-page__market-odd">
-                      <span>{row.over.label}</span>
-                      <strong>{row.over.odd}</strong>
-                    </button>
-                  </div>
-                ))}
+                {tertiaryRows.map((row) => {
+                  const isCurrentRow = isBasketball && isLineMarketCurrentRow(row, match.q3TotalOdds?.line)
+                  const underOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, isBasketball ? 'under-q3' : 'under')
+                  const overOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, isBasketball ? 'over-q3' : 'over')
+
+                  return (
+                    <div key={row.id} className="live-event-page__total-goals-row">
+                      {renderMarketOddButton(tertiaryMarketId, underOutcomeId, row.under.label, row.under.odd)}
+                      {renderMarketOddButton(tertiaryMarketId, overOutcomeId, row.over.label, row.over.odd)}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -2414,29 +2574,32 @@ function LiveEventContent({
             <div className="live-event-page__market-collapse-inner">
               {isBasketball ? (
                 <div className="live-event-page__total-goals-list">
-                  {finalRows.map((row) => (
-                    <div key={row.id} className="live-event-page__total-goals-row">
-                      <button className="live-event-page__market-odd">
-                        <span>{row.under.label}</span>
-                        <strong>{row.under.odd}</strong>
-                      </button>
-                      <button className="live-event-page__market-odd">
-                        <span>{row.over.label}</span>
-                        <strong>{row.over.odd}</strong>
-                      </button>
-                    </div>
-                  ))}
+                  {finalRows.map((row) => {
+                    const isCurrentRow = isLineMarketCurrentRow(row, match.q4TotalOdds?.line)
+                    const underOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, 'under-q4')
+                    const overOutcomeId = getLiveEventLineOutcomeId(row, isCurrentRow, 'over-q4')
+
+                    return (
+                      <div key={row.id} className="live-event-page__total-goals-row">
+                        {renderMarketOddButton(finalMarketId, underOutcomeId, row.under.label, row.under.odd)}
+                        {renderMarketOddButton(finalMarketId, overOutcomeId, row.over.label, row.over.odd)}
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 doubleChanceRows.map((row) => (
                   <div key={row.id} className="live-event-page__market-odds live-event-page__market-odds--double-chance">
-                    {row.options.map((option) => (
-                      <button key={option.label} className="live-event-page__market-odd live-event-page__market-odd--double-chance">
-                        <span className="live-event-page__market-odd-label" aria-label={option.label}>
-                          {option.labelParts ? `${option.labelParts[0]} ou ${option.labelParts[1]}` : option.label}
-                        </span>
-                        <strong>{option.odd}</strong>
-                      </button>
+                    {row.options.map((option, optionIndex) => (
+                      renderMarketOddButton(
+                        finalMarketId,
+                        liveEventDoubleChanceOutcomeIds[optionIndex] ?? option.label,
+                        option.labelParts ? `${option.labelParts[0]} ou ${option.labelParts[1]}` : option.label,
+                        option.odd,
+                        'live-event-page__market-odd live-event-page__market-odd--double-chance',
+                        'live-event-page__market-odd-label',
+                        option.label
+                      )
                     ))}
                   </div>
                 ))
@@ -2547,6 +2710,8 @@ function measureSheetMetrics(): SheetMetrics {
 export function LiveEventPage({
   isOpen,
   onClose,
+  onOpenSettled,
+  onCloseStart,
   match,
   matches,
   railEvents,
@@ -2703,6 +2868,16 @@ export function LiveEventPage({
       swipeSnapTimerRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!shouldRender || isClosing) return undefined
+
+    const timer = window.setTimeout(() => {
+      onOpenSettled?.()
+    }, LIVE_EVENT_TRANSITION_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [isClosing, onOpenSettled, shouldRender])
 
   const armCompactCloseGuard = useCallback(() => {
     compactCloseGuardRef.current = true
@@ -2881,6 +3056,7 @@ export function LiveEventPage({
 
     if (shouldForceClose) clearCompactCloseGuard()
 
+    onCloseStart?.()
     setIsClosing(true)
     setExpansionProgress(0)
     setIsExpansionGestureActive(false)
@@ -2895,7 +3071,7 @@ export function LiveEventPage({
       closeTimerRef.current = null
       onClose()
     }, LIVE_EVENT_TRANSITION_MS)
-  }, [armCompactCloseGuard, clearCompactCloseGuard, clearExpansionSettleTimer, expansionProgress, isClosing, onClose])
+  }, [armCompactCloseGuard, clearCompactCloseGuard, clearExpansionSettleTimer, expansionProgress, isClosing, onClose, onCloseStart])
 
   const requestExpand = useCallback(() => {
     clearExpansionSettleTimer()

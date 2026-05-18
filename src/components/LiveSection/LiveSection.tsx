@@ -10,6 +10,7 @@ import {
   getCompetitionLinkTarget,
   type CompetitionLinkTarget,
 } from '../../utils/competitionNavigation'
+import { updateLiveClock } from '../../utils/liveClock'
 
 import iconBasquete from '../../assets/iconSports/basketball.png'
 import iconEsoccer from '../../assets/iconSports/e-soccer.png'
@@ -512,78 +513,6 @@ const leagues: League[] = [
   },
 ]
 
-// Helper function to parse time string "2T 22:12" or "Q3 04:35" -> { period: 2, minutes: 22, seconds: 12, isQuarter: false }
-function parseMatchTime(timeStr: string): { period: number; minutes: number; seconds: number; isQuarter: boolean } {
-  // Check for quarter format (basketball) - Q1 07:12
-  const quarterMatch = timeStr.match(/Q(\d) (\d+):(\d+)/)
-  if (quarterMatch) {
-    return {
-      period: parseInt(quarterMatch[1]),
-      minutes: parseInt(quarterMatch[2]),
-      seconds: parseInt(quarterMatch[3]),
-      isQuarter: true,
-    }
-  }
-  // Check for half format (football) - 2T 22:12
-  const halfMatch = timeStr.match(/(\d)T (\d+):(\d+)/)
-  if (halfMatch) {
-    return {
-      period: parseInt(halfMatch[1]),
-      minutes: parseInt(halfMatch[2]),
-      seconds: parseInt(halfMatch[3]),
-      isQuarter: false,
-    }
-  }
-  return { period: 1, minutes: 0, seconds: 0, isQuarter: false }
-}
-
-// Helper function to format time back to string
-function formatMatchTime(period: number, minutes: number, seconds: number, isQuarter: boolean): string {
-  const mins = minutes.toString().padStart(2, '0')
-  const secs = seconds.toString().padStart(2, '0')
-  // Basketball: Q1 07:12, Football: 1T 22:12
-  return isQuarter ? `Q${period} ${mins}:${secs}` : `${period}T ${mins}:${secs}`
-}
-
-// Helper function to update time by 1 second (increment for football, decrement for basketball)
-function updateTime(timeStr: string): string {
-  // Don't update halftime/interval times
-  if (timeStr === 'Intervalo' || timeStr === 'INT') {
-    return timeStr
-  }
-
-  const { period, minutes, seconds, isQuarter } = parseMatchTime(timeStr)
-  
-  if (isQuarter) {
-    // Basketball: countdown (regressive)
-    let newSeconds = seconds - 1
-    let newMinutes = minutes
-
-    if (newSeconds < 0) {
-      newSeconds = 59
-      newMinutes -= 1
-    }
-
-    // If time reaches 0:00, change to Intervalo
-    if (newMinutes <= 0 && newSeconds <= 0) {
-      return 'Intervalo'
-    }
-
-    return formatMatchTime(period, newMinutes, newSeconds, isQuarter)
-  } else {
-    // Football: count up (progressive)
-    let newSeconds = seconds + 1
-    let newMinutes = minutes
-
-    if (newSeconds >= 60) {
-      newSeconds = 0
-      newMinutes += 1
-    }
-
-    return formatMatchTime(period, newMinutes, newSeconds, isQuarter)
-  }
-}
-
 interface LiveSectionProps {
   onMatchClick?: (payload: LiveEventOpenPayload) => void
   onOpenCompetition?: (target: CompetitionLinkTarget) => void
@@ -653,7 +582,7 @@ export function LiveSection({ onMatchClick, onOpenCompetition }: LiveSectionProp
       setMatchTimes((prevTimes) => {
         const newTimes: Record<string, string> = {}
         Object.keys(prevTimes).forEach((matchId) => {
-          newTimes[matchId] = updateTime(prevTimes[matchId])
+          newTimes[matchId] = updateLiveClock(prevTimes[matchId])
         })
         return newTimes
       })

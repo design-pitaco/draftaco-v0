@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { Header, type HeaderVisualVariant } from '../../components/Header'
+import { useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
+import { Header } from '../../components/Header'
 import { useSlidingActiveIndicator } from '../../hooks/useSlidingActiveIndicator'
 import type { ProductMode } from '../../types/home'
 import { PromotionsMissionsSection } from './PromotionsMissionsSection'
@@ -8,9 +8,17 @@ import './PromotionsPage.css'
 type PromotionsTabId = 'todas' | 'missoes' | 'torneios' | 'bolao'
 type PromotionsFilterId = 'todos' | ProductMode
 
-interface PromotionsPageProps {
-  headerVariant?: HeaderVisualVariant
+interface HeaderComponentProps {
   activeProduct?: ProductMode
+  changeProductOnPointerDown?: boolean
+  onProductChange?: (product: ProductMode) => void
+  children?: ReactNode
+}
+
+interface PromotionsPageProps {
+  activeProduct?: ProductMode
+  HeaderComponent?: ComponentType<HeaderComponentProps>
+  isV2?: boolean
   onProductChange?: (product: ProductMode) => void
 }
 
@@ -43,8 +51,9 @@ const getTranslateXFromTransform = (transform: string) => {
 }
 
 export function PromotionsPage({
-  headerVariant = 'default',
   activeProduct = 'apostas',
+  HeaderComponent = Header,
+  isV2 = false,
   onProductChange,
 }: PromotionsPageProps = {}) {
   const pageRef = useRef<HTMLDivElement>(null)
@@ -218,15 +227,15 @@ export function PromotionsPage({
     <div
       className={[
         'promotions-page',
-        headerVariant === 'liquid-glass-new' ? 'promotions-page--liquid-glass-new' : '',
+        'promotions-page--liquid-glass-new',
+        isV2 ? 'promotions-page--v2' : '',
         isHeaderCompact ? 'promotions-page--header-compact' : '',
       ]
         .filter(Boolean)
         .join(' ')}
       ref={pageRef}
     >
-      <Header
-        visualVariant={headerVariant}
+      <HeaderComponent
         activeProduct={activeProduct}
         changeProductOnPointerDown={false}
         onProductChange={onProductChange}
@@ -296,7 +305,7 @@ export function PromotionsPage({
             )
           })}
         </div>
-      </Header>
+      </HeaderComponent>
 
       <main className="promotions-page__content">
         <PromotionsMissionsSection activeFilter={activeFilter} />

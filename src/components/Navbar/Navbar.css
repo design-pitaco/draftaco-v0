@@ -37,7 +37,7 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: var(--navbar-height);
+  height: var(--navbar-shell-height, var(--navbar-height));
   pointer-events: auto;
 }
 
@@ -94,33 +94,21 @@
 }
 
 .navbar--liquid-v2 .navbar__panel {
-  border: 0;
-  background:
-    radial-gradient(120% 150% at 12% -8%, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.035) 34%, rgba(255, 255, 255, 0) 64%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.012) 52%, rgba(0, 0, 0, 0.025) 100%),
-    rgba(255, 255, 255, 0.018);
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  background: #1a1a1a;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -6px 12px rgba(0, 0, 0, 0.035),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08),
     0 10px 28px rgba(0, 0, 0, 0.18);
-  -webkit-backdrop-filter: blur(4px) saturate(220%) contrast(120%) brightness(112%);
-  backdrop-filter: blur(4px) saturate(220%) contrast(120%) brightness(112%);
-  -webkit-backdrop-filter: url("#liquid-glass-distortion-v2") blur(4px) saturate(240%) contrast(130%) brightness(116%);
-  backdrop-filter: url("#liquid-glass-distortion-v2") blur(4px) saturate(240%) contrast(130%) brightness(116%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .navbar--liquid-v2.navbar--liquid-v2-casino .navbar__panel {
-  background:
-    radial-gradient(120% 145% at 18% -8%, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.048) 34%, rgba(255, 255, 255, 0.012) 68%),
-    radial-gradient(115% 115% at 84% 112%, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.07) 42%, rgba(0, 0, 0, 0) 72%),
-    linear-gradient(116deg, rgba(0, 0, 0, 0.14) 0%, rgba(255, 255, 255, 0.03) 36%, rgba(0, 0, 0, 0.1) 100%),
-    rgba(13, 13, 13, 0.22);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #1a1a1a;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -8px 14px rgba(0, 0, 0, 0.1),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08),
     0 12px 30px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .navbar--liquid-v2.navbar--liquid-v2-casino .navbar__panel::before {
@@ -174,6 +162,7 @@
 }
 
 .navbar--liquid-v2 .navbar__panel::before {
+  content: none;
   inset: 0;
   z-index: 0;
   height: auto;
@@ -185,6 +174,7 @@
 }
 
 .navbar--liquid-v2 .navbar__panel::after {
+  content: none;
   inset: 1px;
   z-index: 0;
   background:
@@ -244,80 +234,6 @@
   gap: 4px;
   width: 100%;
   min-width: 0;
-}
-
-.navbar__active-indicator,
-.navbar__search-indicator {
-  display: none;
-}
-
-.navbar--liquid-v2 .navbar__active-indicator,
-.navbar--liquid-v2 .navbar__search-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  display: block;
-  width: var(--navbar-active-width, 0);
-  height: var(--navbar-active-height, 48px);
-  border-radius: 999px;
-  background: transparent;
-  opacity: var(--navbar-indicator-opacity, 0);
-  pointer-events: none;
-  transform: translate3d(var(--navbar-active-x, 0), var(--navbar-active-y, 0), 0);
-  transform-origin: center;
-  transition:
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 240ms ease;
-}
-
-.navbar--liquid-v2 .navbar__search-indicator {
-  inset: 4px 0;
-  width: auto;
-  height: auto;
-  opacity: 0;
-  transform: none;
-}
-
-.navbar--liquid-v2 .navbar__search-indicator--active {
-  opacity: 1;
-}
-
-.navbar--liquid-v2 .navbar__active-indicator::before,
-.navbar--liquid-v2 .navbar__search-indicator::before,
-.navbar--liquid-v2 .navbar__active-indicator::after,
-.navbar--liquid-v2 .navbar__search-indicator::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-.navbar--liquid-v2 .navbar__active-indicator::before,
-.navbar--liquid-v2 .navbar__search-indicator::before {
-  background:
-    radial-gradient(130% 130% at 18% 0%, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.14) 42%, rgba(255, 255, 255, 0.05) 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%),
-    rgba(255, 255, 255, 0.07);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.36),
-    inset 0 -7px 12px rgba(0, 0, 0, 0.11),
-    0 6px 16px rgba(0, 0, 0, 0.12);
-  transform: scale3d(var(--navbar-indicator-scale, 1), var(--navbar-indicator-scale, 1), 1);
-  transform-origin: center;
-}
-
-.navbar--liquid-v2 .navbar__active-indicator::after,
-.navbar--liquid-v2 .navbar__search-indicator::after {
-  background:
-    radial-gradient(90% 100% at 0% 0%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 34%),
-    radial-gradient(58% 62% at 100% 100%, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 38%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0) 88%, rgba(255, 255, 255, 0.035));
-  mix-blend-mode: screen;
-  opacity: 0.64;
 }
 
 .navbar__item {
@@ -407,116 +323,24 @@
   box-shadow: none;
 }
 
+.navbar--liquid-v2 .navbar__item {
+  overflow: visible;
+}
+
+.navbar__item-active-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  transform: translate3d(0, 0, 0) scale(1, 1);
+  transform-origin: top left;
+  will-change: transform;
+}
+
 .navbar--liquid-v2 .navbar__item--active::after {
   content: none;
-}
-
-.navbar--liquid-v2.navbar--liquid-item-switching .navbar__active-indicator::before,
-.navbar--liquid-v2 .navbar__search-indicator--liquid-switching::before {
-  animation:
-    navbar-liquid-item-squish 560ms cubic-bezier(0.2, 1, 0.28, 1),
-    navbar-liquid-item-bubble 560ms ease;
-}
-
-.navbar--liquid-v2.navbar--liquid-item-switching .navbar__active-indicator::after,
-.navbar--liquid-v2 .navbar__search-indicator--liquid-switching::after {
-  animation: navbar-liquid-item-shimmer 560ms ease;
-}
-
-@keyframes navbar-liquid-item-squish {
-  0% {
-    transform: scale3d(1, 1, 1);
-    filter: brightness(1);
-  }
-
-  24% {
-    transform: scale3d(1.08, 0.95, 1);
-    filter: brightness(1.2) saturate(1.08);
-  }
-
-  52% {
-    transform: scale3d(0.97, 1.03, 1);
-    filter: brightness(1.12) saturate(1.05);
-  }
-
-  76% {
-    transform: scale3d(1.01, 0.995, 1);
-    filter: brightness(1.04);
-  }
-
-  100% {
-    transform: scale3d(1, 1, 1);
-    filter: brightness(1);
-  }
-}
-
-@keyframes navbar-liquid-item-shimmer {
-  0% {
-    opacity: 0.52;
-    filter: brightness(1);
-  }
-
-  24% {
-    opacity: 0.92;
-    filter: brightness(1.35) saturate(1.12);
-  }
-
-  58% {
-    opacity: 0.76;
-    filter: brightness(1.18);
-  }
-
-  100% {
-    opacity: 0.64;
-    filter: brightness(1);
-  }
-}
-
-@keyframes navbar-liquid-item-bubble {
-  0% {
-    opacity: 1;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.36),
-      inset 0 -7px 12px rgba(0, 0, 0, 0.11),
-      0 6px 16px rgba(0, 0, 0, 0.12);
-  }
-
-  34%,
-  48% {
-    opacity: 0.62;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.58),
-      inset 0 -4px 9px rgba(0, 0, 0, 0.035),
-      inset 0 0 0 0.75px rgba(255, 255, 255, 0.34),
-      0 0 18px rgba(255, 255, 255, 0.18),
-      0 8px 18px rgba(0, 0, 0, 0.08);
-  }
-
-  72% {
-    opacity: 0.84;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.48),
-      inset 0 -5px 10px rgba(0, 0, 0, 0.06),
-      inset 0 0 0 0.65px rgba(255, 255, 255, 0.2),
-      0 0 10px rgba(255, 255, 255, 0.08),
-      0 7px 17px rgba(0, 0, 0, 0.1);
-  }
-
-  88% {
-    opacity: 0.95;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      inset 0 -6px 11px rgba(0, 0, 0, 0.09),
-      0 6px 16px rgba(0, 0, 0, 0.11);
-  }
-
-  100% {
-    opacity: 1;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.36),
-      inset 0 -7px 12px rgba(0, 0, 0, 0.11),
-      0 6px 16px rgba(0, 0, 0, 0.12);
-  }
 }
 
 .navbar__item--search {
