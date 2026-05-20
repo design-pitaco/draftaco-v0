@@ -28,6 +28,25 @@
   padding-top: 160px;
 }
 
+.promotions-page .header::after {
+  content: '';
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  z-index: -40;
+  height: 52px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--tokens-background-background-on-color-dark-rgb) / 0.64) 0%,
+    rgb(var(--tokens-background-background-on-color-dark-rgb) / 0.32) 42%,
+    rgb(var(--tokens-background-background-on-color-dark-rgb) / 0) 100%
+  );
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
 :root[data-theme="dark"] .promotions-page--header-compact .header,
 :root[data-theme="light"] .promotions-page--header-compact .header {
   --header-gradient-height: var(--promotions-sticky-header-gradient-height);
