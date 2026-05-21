@@ -2,11 +2,17 @@ import { BottomSheet } from './BottomSheet'
 import './MoreSportsBottomSheet.css'
 import './MoreCasinoBottomSheet.css'
 
-import iconBrazil from '../../assets/iconPaises/brasil.png'
-import iconPlaceholder from '../../assets/iconSports/casino-placeholder.svg'
+import iconBacbo from '../../assets/iconSports/bacbo.png'
+import iconBaccarat from '../../assets/iconSports/baccarat.png'
+import iconBlackjack from '../../assets/iconSports/blackjack.png'
+import iconBrasileiros from '../../assets/iconSports/brasileiros.png'
 import iconCrash from '../../assets/iconSports/crash.png'
+import iconGameShow from '../../assets/iconSports/game-show.png'
+import iconPoker from '../../assets/iconSports/poker.png'
+import iconRoleta from '../../assets/iconSports/roleta.png'
 import iconSlots from '../../assets/iconSports/slots.png'
 import iconTable from '../../assets/iconSports/table.png'
+import iconVideoBingo from '../../assets/iconSports/video-bingo.png'
 import type { CasinoCategoryId } from '../../types/home'
 
 interface MoreCasinoBottomSheetProps {
@@ -34,12 +40,12 @@ const casinoSections: MoreCasinoSection[] = [
     id: 'cassino-ao-vivo',
     title: 'Cassino Ao Vivo',
     items: [
-      { id: 'brasileiros', label: 'Brasileiros', icon: iconBrazil },
-      { id: 'blackjack', label: 'Blackjack', icon: iconTable, categoryId: 'blackjack' },
-      { id: 'roleta', label: 'Roleta', icon: iconPlaceholder, categoryId: 'roletas' },
-      { id: 'bac-bo-dados', label: 'Bac Bo & Dados', icon: iconPlaceholder },
-      { id: 'game-show', label: 'Game Show', icon: iconPlaceholder },
-      { id: 'baccarat', label: 'Baccarat', icon: iconPlaceholder },
+      { id: 'brasileiros', label: 'Brasileiros', icon: iconBrasileiros },
+      { id: 'blackjack', label: 'Blackjack', icon: iconBlackjack, categoryId: 'blackjack' },
+      { id: 'roleta', label: 'Roleta', icon: iconRoleta, categoryId: 'roletas' },
+      { id: 'bac-bo-dados', label: 'Bac Bo & Dados', icon: iconBacbo },
+      { id: 'game-show', label: 'Game Show', icon: iconGameShow },
+      { id: 'baccarat', label: 'Baccarat', icon: iconBaccarat },
     ],
   },
   {
@@ -48,9 +54,9 @@ const casinoSections: MoreCasinoSection[] = [
     items: [
       { id: 'slots', label: 'Slots', icon: iconSlots, categoryId: 'slots' },
       { id: 'crash', label: 'Crash', icon: iconCrash, categoryId: 'crash' },
-      { id: 'poker', label: 'Poker', icon: iconPlaceholder },
-      { id: 'video-bingo', label: 'Video Bingo', icon: iconPlaceholder },
-      { id: 'jogos-de-mesa', label: 'Mesa', icon: iconPlaceholder },
+      { id: 'poker', label: 'Poker', icon: iconPoker },
+      { id: 'video-bingo', label: 'Video Bingo', icon: iconVideoBingo },
+      { id: 'jogos-de-mesa', label: 'Mesa', icon: iconTable },
     ],
   },
 ]

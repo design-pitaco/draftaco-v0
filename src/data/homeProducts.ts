@@ -38,13 +38,14 @@ import imgRabbit from '../assets/imgRabbit.png'
 import imgTigrinho from '../assets/imgTigrinho.png'
 import imgRatinho from '../assets/img-ratinho.png'
 
-import iconCasinoPlaceholder from '../assets/iconSports/casino-placeholder.svg'
+import iconBlackjack from '../assets/iconSports/blackjack.png'
 import iconCasino from '../assets/iconSports/casino.png'
 import iconCrash from '../assets/iconSports/crash.png'
 import iconDestaque from '../assets/iconSports/fire.png'
 import iconMore from '../assets/iconSports/more.png'
+import iconProvedores from '../assets/iconSports/provedores.png'
+import iconRoleta from '../assets/iconSports/roleta.png'
 import iconSlots from '../assets/iconSports/slots.png'
-import iconTable from '../assets/iconSports/table.png'
 
 import navApostas from '../assets/navApostas.svg'
 import navBusca from '../assets/navBusca.svg'
@@ -373,14 +374,14 @@ export const casinoRailSections: ProductRailSection<CasinoRailItem>[] = [
       {
         id: 'casino:roletas',
         categoryId: 'roletas',
-        icon: iconCasinoPlaceholder,
+        icon: iconRoleta,
         label: 'Roleta',
         clickable: true,
       },
       {
         id: 'casino:blackjack',
         categoryId: 'blackjack',
-        icon: iconTable,
+        icon: iconBlackjack,
         label: 'BlackJack',
         clickable: true,
       },
@@ -393,7 +394,7 @@ export const casinoRailSections: ProductRailSection<CasinoRailItem>[] = [
       {
         id: 'casino:provedores',
         categoryId: 'provedores',
-        icon: iconCasinoPlaceholder,
+        icon: iconProvedores,
         label: 'Provedores',
         clickable: true,
       },
