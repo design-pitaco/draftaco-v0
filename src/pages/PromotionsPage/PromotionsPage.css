@@ -69,12 +69,25 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  border-bottom: 1px solid rgb(var(--tokens-text-text-on-color-white-rgb) / 0.16);
+  border-bottom: 0;
   overflow: hidden;
+}
+
+.promotions-page__tabs::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  height: 1px;
+  background: rgb(var(--tokens-text-text-on-color-white-rgb) / 0.16);
+  pointer-events: none;
 }
 
 .promotions-page__tabs-track {
   position: relative;
+  z-index: 1;
   isolation: isolate;
   display: flex;
   align-items: flex-start;
@@ -139,9 +152,9 @@
 
 .promotions-page__tab-indicator {
   position: absolute;
-  bottom: -1px;
+  bottom: 0;
   left: 0;
-  z-index: 0;
+  z-index: 2;
   width: 0;
   height: 2px;
   border-radius: 2px 2px 0 0;
@@ -164,7 +177,11 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--tokens-text-text-on-color-white);
+  background: linear-gradient(
+    90deg,
+    var(--tokens-layer-layer-gradient-02) 0%,
+    var(--tokens-layer-layer-gradient-01) 100%
+  );
 }
 
 .promotions-page__filters {

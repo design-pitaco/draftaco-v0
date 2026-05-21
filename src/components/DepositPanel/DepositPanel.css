@@ -241,12 +241,12 @@
 .deposit-panel__amount--filled {
   background: linear-gradient(
     90deg,
-    var(--tokens-layer-layer-gradient-03) 0%,
-    var(--tokens-layer-layer-gradient-04) 100%
+    var(--tokens-layer-layer-gradient-05) 0%,
+    var(--tokens-layer-layer-gradient-06) 100%
   );
   background-clip: text;
   color: transparent;
-  font-weight: 800;
+  font-weight: 900;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

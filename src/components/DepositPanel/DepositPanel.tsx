@@ -23,6 +23,7 @@ const contentTransitionDurationMs = 180
 const pixGenerationDelayMs = 3000
 const pixCountdownInitialSeconds = 60 * 60 + 60
 const maxDepositCents = 99999999
+const animatedDepositAmountDurationMs = 520
 const pixCode = '00020101021226850014br.gov.bcb.pix0123deposito-teste-sem-link'
 const quickDepositOptions = [
   { label: 'R$25', amountCents: 2500 },
@@ -37,6 +38,8 @@ const formatDepositAmount = (amountCents: number) => (
     maximumFractionDigits: 2,
   })
 )
+
+const easeOutCubic = (progress: number) => 1 - (1 - progress) ** 3
 
 const formatPixCountdown = (remainingSeconds: number) => {
   if (remainingSeconds > 60 * 60) {
@@ -127,11 +130,80 @@ function TestQrCode() {
   )
 }
 
+function AnimatedDepositAmount({
+  animationKey,
+  isFilled,
+  targetValue,
+}: {
+  animationKey: number
+  isFilled: boolean
+  targetValue: number
+}) {
+  const valueRef = useRef<HTMLSpanElement>(null)
+  const [initialValue] = useState(targetValue)
+  const displayedValue = useRef(targetValue)
+  const previousAnimationKey = useRef(animationKey)
+
+  useEffect(() => {
+    let frameId: number | null = null
+    const startValue = displayedValue.current
+    const difference = targetValue - startValue
+    const shouldAnimate = animationKey !== previousAnimationKey.current
+    previousAnimationKey.current = animationKey
+
+    const setValue = (value: number) => {
+      displayedValue.current = value
+
+      if (valueRef.current) {
+        valueRef.current.textContent = formatDepositAmount(value)
+      }
+    }
+
+    if (!shouldAnimate || Math.abs(difference) < 0.005) {
+      setValue(targetValue)
+      return undefined
+    }
+
+    const startedAt = performance.now()
+
+    const tick = (timestamp: number) => {
+      const progress = Math.min(1, (timestamp - startedAt) / animatedDepositAmountDurationMs)
+      const easedProgress = easeOutCubic(progress)
+      const jitter = progress < 0.72
+        ? Math.sin(progress * Math.PI * 18) * difference * 0.012
+        : 0
+      const nextValue = startValue + difference * easedProgress + jitter
+
+      setValue(progress >= 1 ? targetValue : nextValue)
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(tick)
+      }
+    }
+
+    frameId = window.requestAnimationFrame(tick)
+
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId)
+    }
+  }, [animationKey, targetValue])
+
+  return (
+    <span
+      ref={valueRef}
+      className={`deposit-panel__amount${isFilled ? ' deposit-panel__amount--filled' : ''}`}
+    >
+      {formatDepositAmount(initialValue)}
+    </span>
+  )
+}
+
 export function DepositPanel({ isOpen, onClose }: DepositPanelProps) {
   const [shouldRender, setShouldRender] = useState(false)
   const [motionState, setMotionState] = useState<PanelMotionState>('entering')
   const [view, setView] = useState<DepositView>('form')
   const [amountCents, setAmountCents] = useState(0)
+  const [amountAnimationKey, setAmountAnimationKey] = useState(0)
   const [isCalculatorVisible, setIsCalculatorVisible] = useState(false)
   const [isGeneratingPix, setIsGeneratingPix] = useState(false)
   const [isContentTransitioning, setIsContentTransitioning] = useState(false)
@@ -212,6 +284,7 @@ export function DepositPanel({ isOpen, onClose }: DepositPanelProps) {
 
   const handleQuickOption = (amountCents: number) => {
     setAmountCents(amountCents)
+    setAmountAnimationKey((currentAnimationKey) => currentAnimationKey + 1)
     openCalculator()
   }
 
@@ -464,9 +537,11 @@ export function DepositPanel({ isOpen, onClose }: DepositPanelProps) {
                     onClick={handleAmountClick}
                   >
                     <span className="deposit-panel__currency">R$</span>
-                    <span className={`deposit-panel__amount${hasAmount ? ' deposit-panel__amount--filled' : ''}`}>
-                      {amount}
-                    </span>
+                    <AnimatedDepositAmount
+                      animationKey={amountAnimationKey}
+                      isFilled={hasAmount}
+                      targetValue={amountCents}
+                    />
                   </button>
 
                   <div className="deposit-panel__quick-options" aria-label="Valores rápidos">
