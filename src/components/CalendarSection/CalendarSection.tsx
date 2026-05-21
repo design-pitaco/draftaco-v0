@@ -2840,7 +2840,7 @@ export function CalendarSection({
           aria-haspopup="dialog"
           onClick={() => setIsCompetitionSheetOpen(true)}
         >
-          <span>Ver campeonatos</span>
+          <span>Mais campeonatos</span>
           <CaretUpIcon aria-hidden="true" className="prematch-section__more-icon" weight="bold" />
         </button>
       </div>

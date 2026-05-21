@@ -194,11 +194,10 @@
 
 .competicao-bs__row--disabled {
   cursor: default;
-  opacity: 0.42;
 }
 
 .competicao-bs__row--disabled .competicao-bs__row-label {
-  color: var(--tokens-text-text-02);
+  color: var(--tokens-text-text-01);
 }
 
 .competicao-bs__row-label {
