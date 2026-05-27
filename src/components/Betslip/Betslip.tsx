@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type TransitionEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type TransitionEvent } from 'react'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import './Betslip.css'
 
 import multiplaTurbinadaIcon from '../../assets/multiplaTurbinada.png'
-import { MultiplaTurbinadaBottomSheet } from '../BottomSheet'
 import {
   formatBetslipCurrency,
   formatBetslipOdd,
@@ -53,7 +52,6 @@ export function Betslip({
   const isRenderedRef = useRef(isRendered)
   const isPresentedRef = useRef(isPresented)
   const [turboIconPulseKey, setTurboIconPulseKey] = useState(0)
-  const [isTurboInfoOpen, setIsTurboInfoOpen] = useState(false)
   const [lastVisibleSummary, setLastVisibleSummary] = useState<BetslipSummary | undefined>(
     summary?.hasSelections ? summary : undefined
   )
@@ -198,15 +196,6 @@ export function Betslip({
     event.preventDefault()
     onOpen?.()
   }, [onOpen])
-
-  const handleTurboInfoOpen = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation()
-    setIsTurboInfoOpen(true)
-  }, [])
-
-  const handleTurboInfoClose = useCallback(() => {
-    setIsTurboInfoOpen(false)
-  }, [])
 
   const renderedSummary = shouldShow ? summary : lastVisibleSummary
   const renderedTurboEligibleSelectionCount = shouldShow
@@ -377,11 +366,9 @@ export function Betslip({
               <strong className="betslip__value betslip__value--rolling betslip__value--potential-win" aria-hidden="true">{animatedPotentialWinLabel}</strong>
               <span className={`betslip__payout-label${turboBonusPercent ? ' betslip__payout-label--turbo' : ''}`}>
                 {turboBonusPercent ? (
-                  <button
-                    type="button"
+                  <span
                     className="betslip__turbo-tag"
-                    aria-label="Ver como funciona a Múltipla Turbinada"
-                    onClick={handleTurboInfoOpen}
+                    aria-hidden="true"
                   >
                     <span className="betslip__turbo-value">{animatedTurboBonusLabel}</span>
                     <img
@@ -394,7 +381,7 @@ export function Betslip({
                       ].filter(Boolean).join(' ')}
                       draggable="false"
                     />
-                  </button>
+                  </span>
                 ) : (
                   <>
                     <span aria-hidden="true">Para ganhar</span>
@@ -406,11 +393,6 @@ export function Betslip({
           </span>
         </div>
       </div>
-      <MultiplaTurbinadaBottomSheet
-        isOpen={isTurboInfoOpen}
-        onClose={handleTurboInfoClose}
-        currentSelectionCount={renderedTurboEligibleSelectionCount}
-      />
     </div>
   )
 }
