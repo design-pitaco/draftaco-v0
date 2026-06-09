@@ -1,4 +1,4 @@
-@import '../Header/Header.css';
+@import './HeaderBase.css';
 
 .header--v2 .header__toggle {
   --header-toggle-border-start: rgb(var(--tokens-text-text-01-rgb) / 0.16);
