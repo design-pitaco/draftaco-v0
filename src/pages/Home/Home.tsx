@@ -586,11 +586,20 @@ interface HomeProps {
   onLiveEventCloseStart?: () => void
 }
 
+interface LoadedEventReturnState {
+  activeSport: string | null
+  selectedCompetition: { id: string; name: string } | null
+  activeContentFilter: ContentFilterId
+  activeSportMarket: string | undefined
+  scrollTop: number
+}
+
 interface LoadedEventContext {
   payload: LiveEventOpenPayload
   selectedIndex: number
   competitionId?: string
   competitionName: string
+  returnState?: LoadedEventReturnState
 }
 
 export function Home({
@@ -621,6 +630,13 @@ export function Home({
   const [activeContentFilter, setActiveContentFilter] = useState<ContentFilterId>('populares')
   const [activeSportMarket, setActiveSportMarket] = useState<string | undefined>()
   const [contentFilterScrollSignal, setContentFilterScrollSignal] = useState(0)
+  const screenStateRef = useRef<Omit<LoadedEventReturnState, 'scrollTop'>>({
+    activeSport,
+    selectedCompetition,
+    activeContentFilter,
+    activeSportMarket,
+  })
+  const pendingScrollRestoreRef = useRef<number | null>(null)
   const isBetsProduct = activeProduct === 'apostas'
   const isCasinoCrashPage = !isBetsProduct && activeCasinoCategory === 'crash'
   const isInlineEventMode = isBetsProduct && !!loadedEventContext
@@ -761,7 +777,26 @@ export function Home({
     })
   }, [resetEventRailCollapse, syncCurrentHeaderContentPaddingTop])
 
+  // Mantém o snapshot da "tela anterior" (sport/competição/filtro) sempre atualizado,
+  // exceto enquanto um evento está aberto — assim o fechar volta para onde o usuário estava.
+  useEffect(() => {
+    if (isInlineEventMode) return
+    screenStateRef.current = {
+      activeSport,
+      selectedCompetition,
+      activeContentFilter,
+      activeSportMarket,
+    }
+  })
+
   const handleLiveMatchClick = useCallback((payload: LiveEventOpenPayload) => {
+    const homeEl = homeRef.current
+    const capturedScrollTop = Math.max(
+      homeEl?.scrollTop ?? 0,
+      window.scrollY,
+      document.documentElement.scrollTop
+    )
+    const returnState: LoadedEventReturnState = { ...screenStateRef.current, scrollTop: capturedScrollTop }
     const payloadSelectedIndex = Math.min(Math.max(payload.selectedIndex, 0), Math.max(payload.matches.length - 1, 0))
     const selectedMatch = payload.matches[payloadSelectedIndex]
     const competitionId = selectedMatch?.leagueId
@@ -775,6 +810,7 @@ export function Home({
       selectedIndex: payloadSelectedIndex,
       competitionId,
       competitionName,
+      returnState,
     })
     setActiveContentFilter('populares')
     setIsInlineEventCompact(false)
@@ -843,6 +879,36 @@ export function Home({
     setIsInlineEventCompact(false)
     scrollToTop()
   }, [scrollToTop])
+
+  const handleCloseInlineEvent = useCallback(() => {
+    const returnState = loadedEventContext?.returnState
+    setIsInlineEventCompact(false)
+    setLoadedEventContext(null)
+
+    if (!returnState) {
+      scrollToTop()
+      return
+    }
+
+    setActiveSport(returnState.activeSport)
+    setSelectedCompetition(returnState.selectedCompetition)
+    setActiveContentFilter(returnState.activeContentFilter)
+    setActiveSportMarket(returnState.activeSportMarket)
+    // Restaura a posição de scroll após a lista voltar a renderizar (ver useLayoutEffect abaixo).
+    pendingScrollRestoreRef.current = returnState.scrollTop
+  }, [loadedEventContext, scrollToTop])
+
+  // Aplica o scroll pendente assim que saímos do modo evento e a lista é remontada.
+  useLayoutEffect(() => {
+    if (isInlineEventMode) return
+    if (pendingScrollRestoreRef.current === null) return
+
+    const targetScrollTop = pendingScrollRestoreRef.current
+    pendingScrollRestoreRef.current = null
+    homeRef.current?.scrollTo({ top: targetScrollTop, left: 0, behavior: 'auto' })
+    window.scrollTo({ top: targetScrollTop, left: 0, behavior: 'auto' })
+    syncCurrentHeaderContentPaddingTop()
+  }, [isInlineEventMode, syncCurrentHeaderContentPaddingTop])
 
   const scrollToContentFilterStickyTop = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -1511,6 +1577,7 @@ export function Home({
               isCompact={isInlineEventCompact}
               onSelectedIndexChange={handleInlineMatchSelect}
               onLayoutReady={syncCurrentHeaderContentPaddingTop}
+              onClose={handleCloseInlineEvent}
             />
           </Suspense>
         )}

@@ -9,6 +9,7 @@ import { PreMatchPlayerPropCard, getMatchPlayerProps, type MatchPlayerProp } fro
 import { getLivePlayerProps } from '../../components/LiveMatchCard'
 import type { HomeCompetitionOdd, HomeCompetitionPlayerProp } from '../../types/home'
 import iconAoVivo from '../../assets/iconAoVivo.png'
+import iconCloseEvents from '../../assets/iconsDraftaco/iconCloseEvents.svg'
 import pagamentoAntecipado from '../../assets/pagamentoAntecipado.png'
 import substituicaoGarantida from '../../assets/substituicaoGarantida.png'
 import multiplaTurbinada from '../../assets/multiplaTurbinada.png'
@@ -115,6 +116,7 @@ export interface LiveEventInlineHeaderProps {
   isCompact?: boolean
   onSelectedIndexChange?: (index: number) => void
   onLayoutReady?: () => void
+  onClose?: () => void
 }
 
 export interface LiveEventOpenPayload {
@@ -4200,6 +4202,7 @@ export function LiveEventInlineHeader({
   isCompact = false,
   onSelectedIndexChange,
   onLayoutReady,
+  onClose,
 }: LiveEventInlineHeaderProps) {
   const {
     selectedMatch,
@@ -4238,13 +4241,25 @@ export function LiveEventInlineHeader({
 
   return (
     <div className="live-event-inline__header-stack">
-      <LiveEventInlineEventRail
-        items={railItems}
-        activeIdentity={selectedMatchIdentity}
-        railTimes={railTimes}
-        matchIndexByIdentity={matchIndexByIdentity}
-        onSelectIndex={handleInlineSelectIndex}
-      />
+      <div className="live-event-inline__rail-row">
+        {onClose ? (
+          <button
+            type="button"
+            className="live-event-inline__close"
+            onClick={onClose}
+            aria-label="Fechar evento"
+          >
+            <img src={iconCloseEvents} alt="" aria-hidden="true" />
+          </button>
+        ) : null}
+        <LiveEventInlineEventRail
+          items={railItems}
+          activeIdentity={selectedMatchIdentity}
+          railTimes={railTimes}
+          matchIndexByIdentity={matchIndexByIdentity}
+          onSelectIndex={handleInlineSelectIndex}
+        />
+      </div>
       <div
         className={[
           'live-event-inline__compact-header-shell',
