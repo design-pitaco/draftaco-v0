@@ -61,22 +61,11 @@
   padding: 12px;
   overflow: visible;
   box-sizing: border-box;
-}
-
-.banner-market::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  box-sizing: border-box;
   border: 1px solid var(--ds-fill-opacity-tertiary, rgb(251 251 251 / 0.16));
   border-radius: 16px;
   background:
     url('../../assets/lightCardHighlight.png') top center / cover no-repeat,
     var(--ds-background-app, var(--ds-fill-dark, #000));
-  -webkit-backdrop-filter: blur(10.15px);
-  backdrop-filter: blur(10.15px);
-  pointer-events: none;
 }
 
 .banner-market__box {
