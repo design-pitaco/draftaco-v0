@@ -1,14 +1,47 @@
-.feature-flags-sheet {
+.bottom-sheet.feature-flags-sheet {
+  border-radius: 16px 16px 0 0;
+  background: #131313;
   font-family: 'Red Hat Text', sans-serif;
 }
 
-.feature-flags-sheet .bottom-sheet__title span {
-  font-size: 16px;
+.bottom-sheet.feature-flags-sheet .bottom-sheet__header {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  min-height: 56px;
+  height: 56px;
+  padding: 0;
+  border-bottom: 1px solid var(--tokens-border-border-02);
+  box-sizing: border-box;
 }
 
-.feature-flags-sheet__body {
+.bottom-sheet.feature-flags-sheet .bottom-sheet__title {
+  grid-column: 2;
+  justify-content: center;
+  min-width: 0;
+}
+
+.bottom-sheet.feature-flags-sheet .bottom-sheet__title span {
+  overflow: hidden;
+  font-family: 'Red Hat Text', 'Red Hat Display', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--tokens-text-text-01);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottom-sheet.feature-flags-sheet .bottom-sheet__close {
+  grid-column: 3;
+  justify-self: start;
+}
+
+.bottom-sheet__body.feature-flags-sheet__body {
   padding: 0;
 }
+
+/* ── Item rows ── */
 
 .feature-flags-sheet__list {
   display: grid;
@@ -21,9 +54,40 @@
   justify-content: space-between;
   gap: 16px;
   min-height: 84px;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--tokens-border-border-02);
 }
+
+.feature-flags-sheet__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 84px;
+  padding: 16px 20px;
+}
+
+.feature-flags-sheet__content {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.feature-flags-sheet__item-title {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--tokens-text-text-01);
+}
+
+.feature-flags-sheet__item-description {
+  color: var(--tokens-text-text-02);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+/* ── Brand toggle ── */
 
 .feature-flags-sheet__brand-toggle {
   position: relative;
@@ -91,35 +155,6 @@
 .feature-flags-sheet__brand-toggle-option--active {
   color: var(--tokens-text-text-inverse, var(--tokens-text-text-on-color-black));
   transform: scale(1.02);
-}
-
-.feature-flags-sheet__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 84px;
-  padding: 16px 18px;
-}
-
-.feature-flags-sheet__content {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.feature-flags-sheet__item-title {
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.2;
-  color: var(--tokens-text-text-01);
-}
-
-.feature-flags-sheet__item-description {
-  color: var(--tokens-text-text-02);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.35;
 }
 
 .feature-flags-sheet .betslip-page__credit-toggle:focus-visible {
