@@ -14,8 +14,12 @@ interface NavbarProps {
 }
 
 const navbarActiveMotionMs = 520
+// Colored raster logos render as <img>; monochrome (svg) icons fall through to the
+// CSS-mask path. Match data URIs too: small assets get inlined as `data:image/png;...`
+// at build time (no `.png` suffix), which would otherwise be mis-detected as a mask.
 const shouldRenderNavbarIconAsImage = (icon: string) =>
-  /\.(png|jpe?g|webp)$/i.test(icon.split('?')[0] ?? icon)
+  /^data:image\/(png|jpe?g|webp|gif)/i.test(icon) ||
+  /\.(png|jpe?g|webp|gif)$/i.test(icon.split('?')[0] ?? icon)
 
 const getNavbarIconStyle = (icon: string) => ({
   '--navbar-icon-mask': `url("${icon}")`,
