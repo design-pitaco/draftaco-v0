@@ -249,10 +249,6 @@ function AppContent() {
     setIsDepositPanelOpen(false)
   }, [])
 
-  const handleFeatureFlagsPanelOpen = useCallback(() => {
-    setIsFeatureFlagsPanelOpen(true)
-  }, [])
-
   const handleFeatureFlagsPanelClose = useCallback(() => {
     setIsFeatureFlagsPanelOpen(false)
   }, [])
@@ -376,7 +372,6 @@ function AppContent() {
             activeProduct={activeProduct}
             HeaderComponent={HeaderV2}
             onDepositOpen={handleDepositPanelOpen}
-            onLogoDoubleClick={handleFeatureFlagsPanelOpen}
             onProductChange={handleProductChange}
           />
         ) : (
@@ -385,7 +380,6 @@ function AppContent() {
             HeaderComponent={HeaderV2}
             isLiveEventSuppressed={isFullBetslipOpen}
             onDepositOpen={handleDepositPanelOpen}
-            onLogoDoubleClick={handleFeatureFlagsPanelOpen}
             onProductChange={handleProductChange}
             onLiveEventOpenChange={handleLiveEventOpenChange}
             onLiveEventOpenSettled={handleLiveEventOpenSettled}

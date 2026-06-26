@@ -147,9 +147,11 @@ const FootballLivePropOddsSlider = ({
   const [isDraggingOptions, setIsDraggingOptions] = useState(false)
   const activeOptionIndexRef = useRef(activeOptionIndex)
   const optionsScrollRef = useRef<HTMLDivElement | null>(null)
+  const optionsScrollRafRef = useRef<number | null>(null)
+  const lockedParentRef = useRef<HTMLElement | null>(null)
   const optionDrag = useRef<{
     startX: number
-    startY?: number
+    startY: number
     scrollLeft: number
     startIndex: number
     moved: boolean
@@ -268,6 +270,15 @@ const FootballLivePropOddsSlider = ({
     setActiveOption(centeredIndex)
   }, [clampOptionScroll, getCenteredOptionIndex, setActiveOption])
 
+  const handleOptionScroll = useCallback(() => {
+    if (optionsScrollRafRef.current !== null) return
+
+    optionsScrollRafRef.current = window.requestAnimationFrame(() => {
+      optionsScrollRafRef.current = null
+      updateCenteredOption()
+    })
+  }, [updateCenteredOption])
+
   const snapToNearestOption = useCallback((dragDelta = 0, startIndex?: number) => {
     const containerEl = optionsScrollRef.current
     if (!containerEl) return
@@ -301,6 +312,54 @@ const FootballLivePropOddsSlider = ({
     return (document.scrollingElement ?? document.documentElement) as HTMLElement
   }
 
+  const getHorizontalScrollAncestor = (element: HTMLElement | null) => {
+    let currentElement = element?.parentElement ?? null
+
+    while (currentElement && currentElement !== document.body) {
+      const style = window.getComputedStyle(currentElement)
+      const canScrollX = /(auto|scroll)/.test(style.overflowX)
+
+      if (canScrollX && currentElement.scrollWidth > currentElement.clientWidth) {
+        return currentElement
+      }
+
+      currentElement = currentElement.parentElement
+    }
+
+    return null
+  }
+
+  const setParentScrollLocked = (locked: boolean) => {
+    if (locked) {
+      if (lockedParentRef.current) return
+
+      const parent = getHorizontalScrollAncestor(optionsScrollRef.current)
+      if (parent) {
+        lockedParentRef.current = parent
+        parent.style.overflowX = 'hidden'
+      }
+
+      return
+    }
+
+    if (lockedParentRef.current) {
+      lockedParentRef.current.style.overflowX = ''
+      lockedParentRef.current = null
+    }
+  }
+
+  const setDraggingClass = (active: boolean) => {
+    const containerEl = optionsScrollRef.current
+    containerEl?.classList.toggle('banner-live-highlight__prop-odds-scroll--dragging', active)
+    setIsDraggingOptions(active)
+    setParentScrollLocked(active)
+  }
+
+  const clearDraggingClass = () => {
+    optionsScrollRef.current?.classList.remove('banner-live-highlight__prop-odds-scroll--dragging')
+    setIsDraggingOptions(false)
+  }
+
   const applyVerticalPointerScroll = (event: PointerEvent<HTMLDivElement>) => {
     const drag = optionDrag.current
     const containerEl = optionsScrollRef.current
@@ -328,7 +387,9 @@ const FootballLivePropOddsSlider = ({
 
     event.stopPropagation()
     clearProgrammaticOptionTarget()
-    setIsDraggingOptions(false)
+    setDraggingClass(false)
+    setParentScrollLocked(true)
+    captureOptionPointer(containerEl, event.pointerId)
 
     optionDrag.current = {
       startX: event.clientX,
@@ -336,13 +397,15 @@ const FootballLivePropOddsSlider = ({
       scrollLeft: containerEl.scrollLeft,
       startIndex: activeOptionIndexRef.current ?? getCenteredOptionIndex(),
       moved: false,
-      direction: 'pending',
+      direction: event.pointerType === 'mouse' ? 'horizontal' : 'pending',
       lastY: event.clientY,
       pointerId: event.pointerId,
       sensitivity: event.pointerType === 'touch'
         ? LIVE_PROP_OPTION_TOUCH_SENSITIVITY
         : LIVE_PROP_OPTION_MOUSE_SENSITIVITY,
     }
+
+    if (event.pointerType === 'mouse') setDraggingClass(true)
   }
 
   const handleOptionPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -351,14 +414,16 @@ const FootballLivePropOddsSlider = ({
     if (!drag || !containerEl) return
 
     const deltaX = event.clientX - drag.startX
-    const deltaY = event.clientY - (drag.startY ?? event.clientY)
+    const deltaY = event.clientY - drag.startY
     const absX = Math.abs(deltaX)
     const absY = Math.abs(deltaY)
 
     if (drag.direction === 'pending') {
       if (absY >= LIVE_PROP_OPTION_INTENT_THRESHOLD && absY > absX * LIVE_PROP_OPTION_AXIS_RATIO) {
         drag.direction = 'vertical'
-        setIsDraggingOptions(false)
+        clearDraggingClass()
+        event.stopPropagation()
+        if (event.cancelable) event.preventDefault()
         applyVerticalPointerScroll(event)
         return
       }
@@ -368,9 +433,7 @@ const FootballLivePropOddsSlider = ({
       }
 
       drag.direction = 'horizontal'
-      captureOptionPointer(containerEl, event.pointerId)
-      setIsDraggingOptions(true)
-      containerEl.classList.add('banner-live-highlight__prop-odds-scroll--dragging')
+      setDraggingClass(true)
     }
 
     event.stopPropagation()
@@ -398,8 +461,7 @@ const FootballLivePropOddsSlider = ({
     }
 
     optionDrag.current = null
-    setIsDraggingOptions(false)
-    containerEl?.classList.remove('banner-live-highlight__prop-odds-scroll--dragging')
+    setDraggingClass(false)
   }
 
   const finishOptionDrag = () => {
@@ -419,8 +481,7 @@ const FootballLivePropOddsSlider = ({
     }
 
     optionDrag.current = null
-    setIsDraggingOptions(false)
-    containerEl?.classList.remove('banner-live-highlight__prop-odds-scroll--dragging')
+    setDraggingClass(false)
 
     if (drag.moved) {
       suppressOptionClick.current = true
@@ -468,13 +529,27 @@ const FootballLivePropOddsSlider = ({
   useLayoutEffect(() => {
     const initialIndex = getInitialFootballLivePropOptionIndex(odds)
     activeOptionIndexRef.current = initialIndex
-    setActiveOptionIndex(initialIndex)
-    scrollOptionIntoCenter(initialIndex, 'auto')
+
+    const frame = window.requestAnimationFrame(() => {
+      setActiveOptionIndex(initialIndex)
+      scrollOptionIntoCenter(initialIndex, 'auto')
+    })
+
+    return () => window.cancelAnimationFrame(frame)
   }, [odds, scrollOptionIntoCenter])
 
   useEffect(() => () => {
     if (programmaticOptionTimeout.current) {
       window.clearTimeout(programmaticOptionTimeout.current)
+    }
+
+    if (optionsScrollRafRef.current !== null) {
+      window.cancelAnimationFrame(optionsScrollRafRef.current)
+    }
+
+    if (lockedParentRef.current) {
+      lockedParentRef.current.style.overflowX = ''
+      lockedParentRef.current = null
     }
   }, [])
 
@@ -483,7 +558,7 @@ const FootballLivePropOddsSlider = ({
       <div
         ref={optionsScrollRef}
         className={`banner-live-highlight__prop-odds-scroll${isDraggingOptions ? ' banner-live-highlight__prop-odds-scroll--dragging' : ''}`}
-        onScroll={updateCenteredOption}
+        onScroll={handleOptionScroll}
         onPointerDown={handleOptionPointerDown}
         onPointerMove={handleOptionPointerMove}
         onPointerUp={handleOptionPointerUp}

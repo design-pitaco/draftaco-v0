@@ -27,6 +27,7 @@ import { CasinoContent, casinoCarouselSections } from '../../components/CasinoCo
 import { casinoBanners, casinoPromotions, championsLeagueEventMatches, drafteaSportHomeOfferCarouselItemsBySport, homeCompetitionHighlights, sportHomeOfferCarouselItemsBySport } from '../../data/homeProducts'
 import { getTeamLogo } from '../../data/teamLogos'
 import { useFeatureFlags } from '../../hooks/useFeatureFlags'
+import { LiveEventInline, LiveEventInlineHeader } from '../LiveEventPage'
 import type { LiveEventMatch, LiveEventOpenPayload } from '../LiveEventPage'
 import type { CasinoGameOpenPayload } from '../../components/CasinoContent'
 import type { Banner, CasinoCategoryId, HomeCompetitionHighlight, HomeCompetitionMatch, HomeCompetitionOdd, HomeCompetitionPlayerProp, ProductMode } from '../../types/home'
@@ -34,8 +35,6 @@ import { getTeamAbbreviation } from '../../utils/teamAbbreviations'
 import type { CompetitionLinkTarget } from '../../utils/competitionNavigation'
 import './Home.css'
 
-const LiveEventInline = lazy(() => import('../LiveEventPage').then((m) => ({ default: m.LiveEventInline })))
-const LiveEventInlineHeader = lazy(() => import('../LiveEventPage').then((m) => ({ default: m.LiveEventInlineHeader })))
 const CasinoGamePage = lazy(() => import('../CasinoGamePage').then((m) => ({ default: m.CasinoGamePage })))
 
 const HEADER_COMPACT_SCROLL_TOP = 28
