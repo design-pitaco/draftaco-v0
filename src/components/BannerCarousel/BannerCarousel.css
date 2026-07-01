@@ -507,15 +507,26 @@
 }
 
 .banner-live-highlight__prop-avatar-shell {
-  position: static;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 56px;
   height: 56px;
   flex: 0 0 56px;
-  border-radius: 20px;
-  overflow: visible;
+  overflow: hidden;
+}
+
+.banner-live-highlight__prop-avatar-shell::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  height: 20px;
+  background: linear-gradient(180deg, transparent 0%, var(--ds-background-app, #000) 100%);
+  pointer-events: none;
 }
 
 .banner-live-highlight__prop-avatar {
@@ -523,8 +534,7 @@
   width: 56px;
   height: 56px;
   flex: 0 0 56px;
-  border-radius: 20px;
-  background-color: var(--ds-fill-secondary, rgb(251 251 251 / 0.7));
+  background-color: var(--ds-fill-opacity-primary-hex, #FBFBFB);
   mask: url('../../assets/playerAvatarFutebol.svg') center / 56px 56px no-repeat;
   -webkit-mask: url('../../assets/playerAvatarFutebol.svg') center / 56px 56px no-repeat;
 }

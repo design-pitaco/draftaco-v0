@@ -1762,9 +1762,9 @@ export function BannerCarousel({
               <div className="banner-live-highlight__prop" key={prop.id}>
                 <span className="banner-live-highlight__prop-avatar-shell">
                   <span className={`banner-live-highlight__prop-avatar banner-live-highlight__prop-avatar--${marketBanner.sport === 'basquete' ? 'basketball' : 'football'}`} />
-                  <span className="banner-live-highlight__prop-stat-icon" />
-                  <span className="banner-live-highlight__prop-team-code">{getBannerTeamCode(prop.teamName)}</span>
                 </span>
+                <span className="banner-live-highlight__prop-stat-icon" />
+                <span className="banner-live-highlight__prop-team-code">{getBannerTeamCode(prop.teamName)}</span>
 
                 <div className="banner-live-highlight__prop-body">
                   <span className="banner-live-highlight__prop-copy">
